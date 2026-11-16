@@ -14,6 +14,19 @@ SESSION_DURATION = timedelta(days=5)
 RECENT_SIGN_IN_SECONDS = 5 * 60
 
 
+def has_verified_google_identity(claims: dict[str, Any]) -> bool:
+    """Trust Google-authenticated Firebase identities even if email_verified is omitted.
+
+    Firebase signs the identities map into its ID token. A password sign-in is also
+    acceptable for an account whose Google provider was previously linked.
+    """
+    firebase_claims = claims.get("firebase") or {}
+    if firebase_claims.get("sign_in_provider") == "google.com":
+        return True
+    identities = firebase_claims.get("identities") or {}
+    return bool(identities.get("google.com"))
+
+
 @lru_cache(maxsize=1)
 def firebase_app() -> firebase_admin.App:
     project_id = os.getenv("FIREBASE_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCLOUD_PROJECT")
@@ -30,7 +43,7 @@ def verify_firebase_id_token(id_token: str, now: float | None = None) -> dict[st
     firebase_claims = claims.get("firebase") or {}
     if firebase_claims.get("sign_in_provider") not in {"google.com", "password"}:
         raise ValueError("El acceso debe realizarse con Google o correo y contraseña.")
-    if claims.get("email_verified") is not True:
+    if claims.get("email_verified") is not True and not has_verified_google_identity(claims):
         raise ValueError("Debes verificar el correo antes de acceder al club.")
     if not claims.get("uid") or not claims.get("email"):
         raise ValueError("El token no contiene una identidad de usuario válida.")

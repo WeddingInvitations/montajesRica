@@ -36,7 +36,9 @@ def authenticate_request() -> None:
         provider = claims.get("firebase", {}).get("sign_in_provider")
         if provider not in {"google.com", "password"}:
             raise ValueError("La sesión no pertenece a un proveedor permitido.")
-        if claims.get("email_verified") is not True:
+        from firebase_auth import has_verified_google_identity
+
+        if claims.get("email_verified") is not True and not has_verified_google_identity(claims):
             raise ValueError("El correo de la sesión no está verificado.")
         user = ensure_user_profile(
             uid=claims["uid"],
