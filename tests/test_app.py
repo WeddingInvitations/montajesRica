@@ -17,6 +17,7 @@ def test_home_displays_three_teams_after_authentication(monkeypatch):
     assert "Masculino Future" in page
     assert "Femenino" in page
     assert "divisiones y temporada por confirmar" in page.lower()
+    assert response.headers["Cross-Origin-Opener-Policy"] == "same-origin-allow-popups"
 
 
 def test_health_check():

@@ -154,6 +154,9 @@ def club_logo():
 def clear_invalid_session_cookie(response):
     if request.endpoint not in {"static", "club_logo"}:
         response.headers["Cache-Control"] = "private, no-store, max-age=0"
+        # Firebase Google popup inspects/closes its cross-origin window. This
+        # policy permits that popup while retaining same-origin isolation.
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
     if getattr(g, "clear_firebase_session", False):
         response.delete_cookie(
             SESSION_COOKIE_NAME,

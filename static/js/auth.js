@@ -3,22 +3,22 @@ import {
   createUserWithEmailAndPassword,
   EmailAuthProvider,
   getAdditionalUserInfo,
-  getAuth,
   GoogleAuthProvider,
+  initializeAuth,
   inMemoryPersistence,
   linkWithCredential,
   sendEmailVerification,
   sendPasswordResetEmail,
-  setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
-  getRedirectResult,
   signOut
 } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+// Set memory-only persistence synchronously at initialization. Mobile browsers
+// can cancel popup user activation if the click handler awaits setPersistence.
+const auth = initializeAuth(app, { persistence: inMemoryPersistence });
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
@@ -159,7 +159,8 @@ if (googleButton) {
       // redirect helper uses cross-site storage on authDomain, which mobile
       // Safari/Chrome can block and then silently returns to the login page.
       // Popup sign-in keeps the result in this page and works across devices.
-      await setPersistence(auth, inMemoryPersistence);
+      // Persistence was configured synchronously in initializeAuth above; do
+      // not await anything before opening the popup on a mobile tap.
       const result = await signInWithPopup(auth, googleProvider);
       const additionalInfo = getAdditionalUserInfo(result);
       if (additionalInfo?.isNewUser || !result.user.providerData.some((provider) => provider.providerId === 'password')) {
@@ -194,7 +195,6 @@ if (emailForm) {
 
     setBusy(true);
     try {
-      await setPersistence(auth, inMemoryPersistence);
       if (registering) {
         const credential = await createUserWithEmailAndPassword(auth, emailInput.value.trim(), passwordInput.value);
         await sendEmailVerification(credential.user);
@@ -283,13 +283,6 @@ passwordSetupForm?.addEventListener('submit', async (event) => {
     setBusy(false);
   }
 });
-
-getRedirectResult(auth)
-  .then((result) => result?.user ? finishGoogleSignIn(result.user) : undefined)
-  .catch((error) => {
-    console.error('Firebase redirect sign-in failed:', error?.code || 'unknown');
-    showMessage(friendlyAuthError(error));
-  });
 
 if (logoutButton) {
   logoutButton.addEventListener('click', async () => {
