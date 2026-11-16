@@ -1,0 +1,9 @@
+steps:
+  - name: gcr.io/cloud-builders/gcloud
+    id: deploy-app-engine
+    args: ["app", "deploy", "app.yaml", "--quiet"]
+    waitFor: ["-"]
+
+timeout: "900s"
+options:
+  logging: CLOUD_LOGGING_ONLY

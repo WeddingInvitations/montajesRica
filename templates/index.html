@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#10271f">
+    <meta name="description" content="Portal de equipos, jugadores y partidos de pádel de Montajes Rica.">
+    <title>{{ club.club_name }} · Pádel</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
+    <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="#inicio" aria-label="Montajes Rica, inicio">
+          <img class="brand-logo" src="/logoMontajes.jpeg" alt="Logo Montajes Rica">
+          <span class="brand-copy"><strong>Montajes Rica</strong><small>CLUB DE PÁDEL</small></span>
+        </a>
+        <div class="season-chip"><span class="live-dot"></span> TEMPORADA <strong>{{ club.season }}</strong></div>
+        <p class="nav-label">CLUB</p>
+        <nav class="main-nav" aria-label="Navegación principal">
+          <a class="nav-link active" href="#inicio" data-view="inicio"><span class="nav-icon">⌂</span> Resumen</a>
+          <a class="nav-link" href="#equipos" data-view="equipos"><span class="nav-icon">◫</span> Equipos <span class="nav-count">{{ club.teams|length }}</span></a>
+          <a class="nav-link" href="#partidos" data-view="partidos"><span class="nav-icon">◷</span> Partidos</a>
+          <a class="nav-link" href="#clasificacion" data-view="clasificacion"><span class="nav-icon">▤</span> Clasificación</a>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="club-note"><span class="note-icon">i</span><p>Los datos de jugadores y competición se añadirán cuando nos facilitéis la información.</p></div>
+          <div class="user-chip"><span class="avatar">MR</span><span><strong>Montajes Rica</strong><small>Portal del club</small></span><span class="more">···</span></div>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <button class="mobile-menu" id="mobile-menu" aria-label="Abrir menú" aria-expanded="false">☰</button>
+          <div class="breadcrumb"><span>Montajes Rica</span><span class="crumb-slash">/</span><strong id="current-section">Resumen</strong></div>
+          <div class="topbar-right"><span class="season-label">Temporada {{ club.season }}</span><button class="theme-toggle" id="theme-toggle" type="button" aria-label="Cambiar a tema oscuro" title="Cambiar a tema oscuro"><span class="theme-icon" aria-hidden="true">☾</span><span class="theme-label">Oscuro</span></button><span class="top-avatar">MR</span></div>
+        </header>
+
+        <div class="page-wrap">
+          <section class="view-section" id="view-inicio">
+            <div class="welcome-row">
+              <div><p class="eyebrow">PÁDEL · MONTAJES RICA</p><h1>El club, <span>punto a punto.</span></h1><p class="intro">Sigue nuestros equipos, conoce a los jugadores y no te pierdas ningún partido.</p></div>
+              <div class="hero-ball" aria-hidden="true"><div class="ball-seam"></div><span>MR</span></div>
+            </div>
+            <div class="stats-grid" id="stats-grid" aria-label="Resumen del club"></div>
+            <div class="section-heading"><div><p class="eyebrow">TEMPORADA {{ club.season }}</p><h2>Nuestros equipos <span class="muted-count">{{ club.teams|length }}</span></h2></div><a class="text-link" href="#equipos" data-view="equipos">Ver equipos <span>↗</span></a></div>
+            <div class="team-grid" id="team-grid"></div>
+            <div class="lower-grid">
+              <section class="panel next-match-panel"><div class="panel-heading"><div><p class="eyebrow">EN LA PISTA</p><h2>Próximos partidos</h2></div><a class="text-link" href="#partidos" data-view="partidos">Ver calendario <span>↗</span></a></div><div id="upcoming-matches"></div></section>
+              <section class="panel standings-panel"><div class="panel-heading"><div><p class="eyebrow">LIGA</p><h2>Clasificación</h2></div><a class="icon-link" href="#clasificacion" data-view="clasificacion" aria-label="Ver clasificación">↗</a></div><div id="standings-preview"></div></section>
+            </div>
+            <p class="demo-disclaimer"><span>ⓘ</span> Los nombres de los equipos ya están configurados. Divisiones y temporada por confirmar; jugadores, partidos y clasificaciones pendientes.</p>
+          </section>
+
+          <section class="view-section hidden" id="view-equipos">
+            <div class="page-title"><p class="eyebrow">LA FAMILIA MR</p><h1>Nuestros equipos</h1><p class="intro">Tres equipos, una misma forma de competir.</p></div>
+            <div class="team-grid team-grid-large" id="all-teams"></div>
+            <div class="panel roster-panel"><div class="panel-heading"><div><p class="eyebrow">PLANTILLA</p><h2 id="roster-title">Jugadores</h2></div><label class="select-wrap"><span class="sr-only">Seleccionar equipo</span><select id="team-select"></select><span aria-hidden="true">⌄</span></label></div><div id="roster-content"></div></div>
+          </section>
+
+          <section class="view-section hidden" id="view-partidos">
+            <div class="page-title"><p class="eyebrow">CALENDARIO DE COMPETICIÓN</p><h1>Partidos</h1><p class="intro">Próximos encuentros y resultados de nuestros equipos.</p></div>
+            <div class="filter-row"><label class="select-wrap"><span class="sr-only">Filtrar por equipo</span><select id="match-team-filter"></select><span aria-hidden="true">⌄</span></label><div class="filter-caption">Temporada {{ club.season }}</div></div>
+            <div class="panel matches-panel" id="matches-list"></div>
+          </section>
+
+          <section class="view-section hidden" id="view-clasificacion">
+            <div class="page-title"><p class="eyebrow">LA LIGA</p><h1>Clasificación</h1><p class="intro">La lucha por cada punto en nuestras divisiones.</p></div>
+            <div class="filter-row"><label class="select-wrap"><span class="sr-only">Filtrar clasificación por equipo</span><select id="standings-team-filter"></select><span aria-hidden="true">⌄</span></label><div class="filter-caption">Actualizada con los datos disponibles</div></div>
+            <div id="standings-list"></div>
+          </section>
+          <footer class="footer"><span>© {{ club.club_name }} · Club de pádel</span><span>Hecho para jugar en equipo <span class="footer-heart">♥</span></span></footer>
+        </div>
+      </main>
+    </div>
+    <script id="club-data" type="application/json">{{ club|tojson }}</script>
+  </body>
+</html>

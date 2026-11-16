@@ -1,0 +1,12 @@
+{
+  "club_name": "Montajes Rica",
+  "season": "Por configurar",
+  "teams": [
+    {"id": "equipo-1", "name": "Masculino 500", "short_name": "M500", "division": "División por configurar", "season": "Por configurar"},
+    {"id": "equipo-2", "name": "Masculino Future", "short_name": "FUT", "division": "División por configurar", "season": "Por configurar"},
+    {"id": "equipo-3", "name": "Femenino", "short_name": "FEM", "division": "División por configurar", "season": "Por configurar"}
+  ],
+  "players": [],
+  "matches": [],
+  "standings": []
+}

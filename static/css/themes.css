@@ -1,0 +1,143 @@
+/* Paleta inspirada en el logo: carbón, cobre y crema. */
+:root {
+  color-scheme: light;
+  --ink: #292725;
+  --muted: #817a73;
+  --green: #c6632c;
+  --green-dark: #292725;
+  --lime: #f0c27b;
+  --line: #e9e3dc;
+  --paper: #f7f5f1;
+  --white: #fffdfa;
+  --shadow: 0 12px 40px rgba(48, 38, 29, .08);
+}
+
+.brand-logo { width: 43px; height: 43px; flex: none; object-fit: cover; border-radius: 50%; border: 1px solid #e8dfd4; }
+.brand { gap: 10px; }
+.brand-copy strong { color: #292725; }
+.brand-mark { display: none; }
+.theme-toggle { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 7px; background: var(--white); color: var(--ink); padding: 7px 10px; font-size: 10px; font-weight: 600; cursor: pointer; transition: background .2s, border-color .2s; }
+.theme-toggle:hover { border-color: var(--green); }
+.theme-icon { font-size: 14px; line-height: 1; }
+
+.team-green { --team-color: #b85b2a; --team-tint: #f7ece4; }
+.team-blue { --team-color: #59636b; --team-tint: #edf0f1; }
+.team-orange { --team-color: #bd8a39; --team-tint: #f7f1e4; }
+.season-chip, .stat-icon, .match-date, .empty-icon { background: #f5eee6; }
+.season-chip { color: #81766a; }
+.season-chip strong, .nav-link.active, .nav-link:hover, .nav-link.active .nav-icon { color: #a64e22; }
+.nav-link.active { background: #f7eee7; }
+.live-dot { background: #c66a36; }
+.club-note { background: #f7f3ed; }
+.note-icon { border-color: #ba805b; color: #a45b35; }
+.team-card-meta b, .match-date strong, .player-tags span { color: #9c542f; }
+.player-tags span { background: #f7eee7; }
+.team-card:after { opacity: .8; }
+.our-team .position-badge, .our-team td { color: #a64e22; }
+.team-action { color: var(--team-color); }
+.footer-heart { color: #c6632c; }
+.demo-disclaimer span { color: #a45b35; }
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #f0ece5;
+  --muted: #aaa198;
+  --green: #e58b50;
+  --green-dark: #171615;
+  --lime: #e6b46e;
+  --line: #3a3530;
+  --paper: #201e1c;
+  --white: #292624;
+  --shadow: 0 12px 40px rgba(0, 0, 0, .22);
+}
+html[data-theme="dark"] body,
+html[data-theme="dark"] .main-content { background: var(--paper); color: var(--ink); }
+html[data-theme="dark"] .sidebar,
+html[data-theme="dark"] .topbar { background: #191817; border-color: var(--line); }
+html[data-theme="dark"] .brand-copy strong,
+html[data-theme="dark"] .breadcrumb strong,
+html[data-theme="dark"] .user-chip strong,
+html[data-theme="dark"] .section-heading h2,
+html[data-theme="dark"] .panel-heading h2,
+html[data-theme="dark"] .page-title h1,
+html[data-theme="dark"] .welcome-row h1,
+html[data-theme="dark"] .team-card h3,
+html[data-theme="dark"] .match-info > strong,
+html[data-theme="dark"] .player-details > strong,
+html[data-theme="dark"] .standings-table td,
+html[data-theme="dark"] .error-card h1 { color: var(--ink); }
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] .team-card,
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .player-card,
+html[data-theme="dark"] .error-card { background: #292624; border-color: var(--line); box-shadow: var(--shadow); }
+html[data-theme="dark"] .season-chip,
+html[data-theme="dark"] .club-note,
+html[data-theme="dark"] .stat-icon,
+html[data-theme="dark"] .nav-link.active,
+html[data-theme="dark"] .nav-link:hover,
+html[data-theme="dark"] .team-season,
+html[data-theme="dark"] .match-date,
+html[data-theme="dark"] .match-score,
+html[data-theme="dark"] .empty-icon,
+html[data-theme="dark"] .position-badge { background: #35302b; }
+html[data-theme="dark"] .season-chip,
+html[data-theme="dark"] .season-chip strong,
+html[data-theme="dark"] .nav-link,
+html[data-theme="dark"] .nav-link.active,
+html[data-theme="dark"] .nav-link:hover,
+html[data-theme="dark"] .nav-icon,
+html[data-theme="dark"] .text-link,
+html[data-theme="dark"] .icon-link,
+html[data-theme="dark"] .team-action,
+html[data-theme="dark"] .match-date strong,
+html[data-theme="dark"] .team-card-meta b,
+html[data-theme="dark"] .stat-icon,
+html[data-theme="dark"] .empty-icon { color: #e58b50; }
+html[data-theme="dark"] .nav-link.active { background: #3b2e26; }
+html[data-theme="dark"] .nav-count,
+html[data-theme="dark"] .season-label,
+html[data-theme="dark"] .breadcrumb,
+html[data-theme="dark"] .brand-copy small,
+html[data-theme="dark"] .nav-label,
+html[data-theme="dark"] .eyebrow,
+html[data-theme="dark"] .intro,
+html[data-theme="dark"] .stat-card > span:last-child,
+html[data-theme="dark"] .team-card-meta,
+html[data-theme="dark"] .match-team-label,
+html[data-theme="dark"] .match-info small,
+html[data-theme="dark"] .player-details > span,
+html[data-theme="dark"] .filter-caption,
+html[data-theme="dark"] .footer,
+html[data-theme="dark"] .demo-disclaimer,
+html[data-theme="dark"] .club-note p,
+html[data-theme="dark"] .user-chip small { color: #aaa198; }
+html[data-theme="dark"] .team-green { --team-color: #e58b50; --team-tint: #382920; }
+html[data-theme="dark"] .team-blue { --team-color: #a4b7c3; --team-tint: #293238; }
+html[data-theme="dark"] .team-orange { --team-color: #e4bd76; --team-tint: #393124; }
+html[data-theme="dark"] .team-card:after { opacity: .7; }
+html[data-theme="dark"] .team-emblem { color: #191817; }
+html[data-theme="dark"] .standings-table th,
+html[data-theme="dark"] .standings-table td,
+html[data-theme="dark"] .match-row,
+html[data-theme="dark"] .team-action,
+html[data-theme="dark"] .user-chip,
+html[data-theme="dark"] .footer { border-color: var(--line); }
+html[data-theme="dark"] .standings-table .our-team td { background: #3b2e26; color: #f0b281; }
+html[data-theme="dark"] .our-team .position-badge { background: #4a3528; color: #f0b281; }
+html[data-theme="dark"] .you-tag { background: #4a3528; color: #f0b281; }
+html[data-theme="dark"] .player-tags span { background: #3b2e26; color: #efb080; }
+html[data-theme="dark"] .select-wrap select,
+html[data-theme="dark"] .theme-toggle { background: #292624; border-color: var(--line); color: var(--ink); }
+html[data-theme="dark"] .select-wrap > span:last-child { color: #c8b9a9; }
+html[data-theme="dark"] .empty-state strong { color: #e8e1d8; }
+html[data-theme="dark"] .empty-state p { color: #aaa198; }
+html[data-theme="dark"] .avatar { background: #423329; color: #f0b281; }
+html[data-theme="dark"] .top-avatar { background: #e58b50; color: #201e1c; }
+html[data-theme="dark"] .brand-logo { border-color: #51463c; }
+html[data-theme="dark"] .button-primary { background: #c6632c; color: #fff8f0; }
+
+@media (max-width: 760px) {
+  .theme-toggle { padding: 7px 8px; }
+  .theme-label { display: none; }
+}
