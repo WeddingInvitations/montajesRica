@@ -1,6 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import {
-  browserSessionPersistence,
   createUserWithEmailAndPassword,
   EmailAuthProvider,
   getAdditionalUserInfo,
@@ -13,7 +12,6 @@ import {
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
-  signInWithRedirect,
   getRedirectResult,
   signOut
 } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
@@ -73,6 +71,7 @@ function friendlyAuthError(error) {
     'auth/unauthorized-domain': 'Este dominio no está autorizado. Añade localhost, 127.0.0.1 y montajesrica.ew.r.appspot.com en Authentication → Configuración → Dominios autorizados.',
     'auth/operation-not-allowed': 'Habilita Google y Correo/contraseña en Firebase Console → Authentication → Método de acceso.',
     'auth/popup-blocked': 'El navegador bloqueó la ventana de Google. Permite ventanas emergentes o vuelve a intentarlo.',
+    'auth/operation-not-supported-in-this-environment': 'Este navegador bloquea la ventana de acceso. Abre la web directamente en Safari o Chrome y vuelve a intentarlo.',
     'auth/email-already-in-use': 'Ese correo ya tiene una cuenta. Inicia sesión con ella o usa “¿Olvidaste la contraseña?”.',
     'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres.',
     'auth/invalid-email': 'Introduce un correo electrónico válido.',
@@ -156,12 +155,10 @@ if (googleButton) {
     setBusy(true);
     let stage = 'google-popup';
     try {
-      const useRedirect = window.matchMedia('(max-width: 760px), (pointer: coarse)').matches;
-      if (useRedirect) {
-        await setPersistence(auth, browserSessionPersistence);
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      }
+      // The site is hosted on App Engine, not Firebase Hosting. Firebase's
+      // redirect helper uses cross-site storage on authDomain, which mobile
+      // Safari/Chrome can block and then silently returns to the login page.
+      // Popup sign-in keeps the result in this page and works across devices.
       await setPersistence(auth, inMemoryPersistence);
       const result = await signInWithPopup(auth, googleProvider);
       const additionalInfo = getAdditionalUserInfo(result);
