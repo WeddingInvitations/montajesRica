@@ -96,6 +96,10 @@ def test_admin_dashboard_renders_for_an_authorized_firebase_admin(monkeypatch):
     assert "Panel de administración" in page
     assert "Añadir jugador" in page
     assert "Parejas y marcadores por sets" in page
+    assert 'role="tablist"' in page
+    assert 'id="equipos" role="tabpanel" aria-labelledby="tab-equipos"' in page
+    assert 'id="jugadores" role="tabpanel" aria-labelledby="tab-jugadores" hidden' in page
+    assert 'data-admin-tab="partidos"' in page
 
 
 def test_match_pairing_accepts_two_team_players_and_set_scores():

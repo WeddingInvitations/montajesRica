@@ -93,13 +93,15 @@
   }
 
   function renderRoster(teamId) {
-    const roster = players.filter((player) => player.team_id === teamId);
+    const roster = players
+      .filter((player) => player.team_id === teamId)
+      .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'es'));
     const team = teamById(teamId);
     document.getElementById('roster-title').textContent = `Jugadores · ${team?.name || 'Equipo'}`;
-    const content = roster.length ? `<div class="player-grid">${roster.map((player, index) => {
+    const content = roster.length ? `<div class="roster-table-scroll"><table class="roster-table"><thead><tr><th scope="col">Jugador</th><th scope="col">Equipo</th><th scope="col">Lado</th><th scope="col">Partidos jugados</th><th scope="col">Ganados</th><th scope="col">Perdidos</th><th scope="col">Sets ganados</th><th scope="col">Sets perdidos</th></tr></thead><tbody>${roster.map((player) => {
       const stats = playerStats[player.id] || { played: 0, wins: 0, losses: 0, sets_won: 0, sets_lost: 0 };
-      return `<article class="player-card"><div class="player-avatar player-avatar-${index % 4}">${escapeHtml(String(player.name || '?').split(/\s+/).slice(0, 2).map((part) => part[0] || '').join('').toUpperCase())}</div><div class="player-details"><strong>${safe(player.name)}</strong><span>${teamName(player.team_id)}</span><div class="player-tags"><span>${safe(player.handedness, 'Mano por confirmar')}</span>${player.position ? `<span>${safe(player.position)}</span>` : ''}</div><div class="player-stats" aria-label="Estadísticas del jugador"><span><b>${stats.played}</b> PJ</span><span><b>${stats.wins}</b> PG</span><span><b>${stats.losses}</b> PP</span><span><b>${stats.sets_won}</b> SG</span><span><b>${stats.sets_lost}</b> SP</span></div></div></article>`;
-    }).join('')}</div>` : emptyState('♙', 'Plantilla por completar', 'Cuando tengamos los nombres y perfiles, podrás ver aquí quién juega en este equipo y su lado de pista.');
+      return `<tr><th scope="row">${safe(player.name)}</th><td>${teamName(player.team_id)}</td><td>${safe(player.handedness, 'Por confirmar')}</td><td class="roster-number">${stats.played}</td><td class="roster-number">${stats.wins}</td><td class="roster-number">${stats.losses}</td><td class="roster-number">${stats.sets_won}</td><td class="roster-number">${stats.sets_lost}</td></tr>`;
+    }).join('')}</tbody></table></div>` : emptyState('♙', 'Plantilla por completar', 'Cuando tengamos los nombres y perfiles, podrás ver aquí quién juega en este equipo y su lado de pista.');
     document.getElementById('roster-content').innerHTML = content;
   }
 

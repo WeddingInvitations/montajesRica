@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-tabs.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-pairings.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/player-stats.css') }}">
   </head>
@@ -26,9 +27,15 @@
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}<div class="flash-list">{% for category, message in messages %}<p class="flash flash-{{ category }}">{{ message }}</p>{% endfor %}</div>{% endif %}
       {% endwith %}
-      <nav class="admin-nav" aria-label="Secciones de administración"><a href="#equipos">Equipos</a><a href="#jugadores">Jugadores</a><a href="#partidos">Partidos y resultados</a><a href="#clasificacion">Clasificación</a><a href="#administradores">Administradores</a></nav>
+      <nav class="admin-nav" role="tablist" aria-label="Secciones de administración">
+        <button class="admin-tab active" id="tab-equipos" type="button" role="tab" aria-selected="true" aria-controls="equipos" data-admin-tab="equipos">Equipos</button>
+        <button class="admin-tab" id="tab-jugadores" type="button" role="tab" aria-selected="false" aria-controls="jugadores" tabindex="-1" data-admin-tab="jugadores">Jugadores</button>
+        <button class="admin-tab" id="tab-partidos" type="button" role="tab" aria-selected="false" aria-controls="partidos" tabindex="-1" data-admin-tab="partidos">Partidos y resultados</button>
+        <button class="admin-tab" id="tab-clasificacion" type="button" role="tab" aria-selected="false" aria-controls="clasificacion" tabindex="-1" data-admin-tab="clasificacion">Clasificación</button>
+        <button class="admin-tab" id="tab-administradores" type="button" role="tab" aria-selected="false" aria-controls="administradores" tabindex="-1" data-admin-tab="administradores">Administradores</button>
+      </nav>
 
-      <section class="admin-section" id="equipos">
+      <section class="admin-section" id="equipos" role="tabpanel" aria-labelledby="tab-equipos">
         <div class="admin-section-heading"><div><p class="eyebrow">TEMPORADA Y DIVISIONES</p><h2>Equipos <span>{{ club.teams|length }}</span></h2></div></div>
         <div class="record-list">
           {% for team in club.teams %}
@@ -43,7 +50,7 @@
         </div>
       </section>
 
-      <section class="admin-section" id="jugadores">
+      <section class="admin-section hidden" id="jugadores" role="tabpanel" aria-labelledby="tab-jugadores" hidden>
         {% set active_players = club.players|rejectattr('active', 'equalto', false)|list %}
         {% set archived_players = club.players|selectattr('active', 'equalto', false)|list %}
         <div class="admin-section-heading"><div><p class="eyebrow">PLANTILLAS</p><h2>Jugadores <span>{{ active_players|length }}</span></h2></div></div>
@@ -98,7 +105,7 @@
         </details>
       </section>
 
-      <section class="admin-section" id="partidos">
+      <section class="admin-section hidden" id="partidos" role="tabpanel" aria-labelledby="tab-partidos" hidden>
         <div class="admin-section-heading"><div><p class="eyebrow">CALENDARIO Y COMPETICIÓN</p><h2>Partidos y resultados <span>{{ club.matches|length }}</span></h2></div></div>
         <form class="admin-card admin-form" method="post" action="{{ url_for('admin.create_match') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -122,7 +129,7 @@
         </div>
       </section>
 
-      <section class="admin-section" id="clasificacion">
+      <section class="admin-section hidden" id="clasificacion" role="tabpanel" aria-labelledby="tab-clasificacion" hidden>
         <div class="admin-section-heading"><div><p class="eyebrow">TABLAS DE LIGA</p><h2>Clasificación <span>{{ club.standings|length }}</span></h2></div></div>
         <form class="admin-card admin-form" method="post" action="{{ url_for('admin.create_standing') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -146,7 +153,7 @@
         </div>
       </section>
 
-      <section class="admin-section" id="administradores">
+      <section class="admin-section hidden" id="administradores" role="tabpanel" aria-labelledby="tab-administradores" hidden>
         <div class="admin-section-heading"><div><p class="eyebrow">ACCESOS</p><h2>Administradores <span>{{ admins|length }}</span></h2></div></div>
         <form class="admin-card admin-form add-admin-form" method="post" action="{{ url_for('admin.create_admin') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
