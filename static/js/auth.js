@@ -59,6 +59,9 @@ function clearMessage() {
 
 function friendlyAuthError(error) {
   if (error?.stage === 'session-exchange') {
+    if (error.status === 503) {
+      return error.backendMessage || 'Google autenticó la cuenta, pero el servidor no tiene permisos para consultar Firebase Auth/Firestore. Para desarrollo local, configura ADC con una cuenta autorizada; en App Engine, revisa los roles de la cuenta de servicio.';
+    }
     return `Google te autenticó, pero el servidor no pudo crear la sesión (HTTP ${error.status || 'desconocido'}). En desarrollo local, comprueba que las credenciales ADC de Google tienen permisos en Firestore y Firebase Authentication.`;
   }
   const messages = {
@@ -95,10 +98,18 @@ async function establishServerSession(user) {
     body: JSON.stringify({ idToken })
   });
   if (!response.ok) {
+    let backendMessage = '';
+    try {
+      const body = await response.json();
+      backendMessage = body.description || body.message || '';
+    } catch {
+      // Keep the generic message if the server response is not JSON.
+    }
     await signOut(auth).catch(() => {});
     const error = new Error('El backend rechazó el intercambio de sesión.');
     error.stage = 'session-exchange';
     error.status = response.status;
+    error.backendMessage = backendMessage;
     throw error;
   }
   await signOut(auth);

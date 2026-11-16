@@ -7,6 +7,7 @@ from pathlib import Path
 
 from flask import Flask, abort, g, jsonify, make_response, render_template, request, send_from_directory
 from flask_wtf.csrf import CSRFProtect
+from firebase_admin import auth as firebase_auth
 from firebase_admin import exceptions as firebase_exceptions
 from werkzeug.exceptions import HTTPException
 
@@ -92,9 +93,15 @@ def create_auth_session():
             abort(403, description="Tu cuenta está desactivada. Contacta con administración.")
     except ValueError as error:
         abort(401, description=str(error))
+    except firebase_auth.InsufficientPermissionError:
+        app.logger.exception("Firebase Auth denied the local/runtime identity")
+        abort(503, description="La cuenta de servicio no tiene permisos de Firebase Authentication. En local, autoriza ADC con una cuenta del proyecto; en App Engine, revisa roles/firebaseauth.viewer.")
+    except (firebase_auth.InvalidIdTokenError, firebase_auth.ExpiredIdTokenError, firebase_auth.RevokedIdTokenError):
+        app.logger.info("Rejected an invalid, expired or revoked Firebase ID token", exc_info=True)
+        abort(401, description="La sesión de Google ha caducado o no es válida. Vuelve a iniciar sesión.")
     except firebase_exceptions.FirebaseError:
         app.logger.exception("Firebase Auth session creation failed")
-        abort(401, description="Firebase no ha podido validar la cuenta. Inténtalo de nuevo.")
+        abort(503, description="Firebase Authentication no está disponible para el servidor. Revisa los permisos de la identidad ADC/servicio y las APIs del proyecto.")
     except HTTPException:
         raise
     except Exception:

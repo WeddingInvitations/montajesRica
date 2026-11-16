@@ -87,6 +87,8 @@ gcloud auth application-default set-quota-project montajesrica
 
 La cuenta local necesita `roles/datastore.user` para los perfiles en Firestore y `roles/firebaseauth.viewer` para comprobar usuario/sesión revocada. No uses credenciales de servicio descargadas en el repositorio. La página no carga ningún dato del club hasta validar una sesión.
 
+Si Google autentica pero `/auth/session` devuelve HTTP 503, revisa el detalle de Flask: en local normalmente significa que ADC pertenece a una cuenta sin IAM en el proyecto. El login interactivo del frontend no sustituye ADC. En la autorización de `gcloud auth application-default login`, elige la cuenta del proyecto y acepta los ámbitos solicitados; no copies tokens ni claves al chat. HTTP 401 significa que el token de Firebase es inválido, ha caducado o no se ha verificado el correo.
+
 Pruebas:
 
 ```powershell

@@ -195,6 +195,39 @@ def test_firebase_id_token_is_exchanged_for_http_only_session_cookie(monkeypatch
     assert "SameSite=Lax" in cookie
 
 
+def test_missing_firebase_permissions_returns_actionable_503(monkeypatch):
+    import re
+    from firebase_admin import auth as firebase_auth
+
+    monkeypatch.setattr("app.verify_firebase_id_token", lambda token: (_ for _ in ()).throw(
+        firebase_auth.InsufficientPermissionError("Permission denied", None, None)
+    ))
+    client = app.test_client()
+    home = client.get("/")
+    csrf_token = re.search(r'<meta name="csrf-token" content="([^"]+)"', home.get_data(as_text=True)).group(1)
+
+    response = client.post("/auth/session", json={"idToken": "valid-shaped-token"}, headers={"X-CSRFToken": csrf_token})
+
+    assert response.status_code == 503
+    assert "ADC" in response.get_data(as_text=True)
+
+
+def test_invalid_firebase_token_returns_401(monkeypatch):
+    import re
+    from firebase_admin import auth as firebase_auth
+
+    monkeypatch.setattr("app.verify_firebase_id_token", lambda token: (_ for _ in ()).throw(
+        firebase_auth.InvalidIdTokenError("Invalid Firebase ID token")
+    ))
+    client = app.test_client()
+    home = client.get("/")
+    csrf_token = re.search(r'<meta name="csrf-token" content="([^"]+)"', home.get_data(as_text=True)).group(1)
+
+    response = client.post("/auth/session", json={"idToken": "invalid-token"}, headers={"X-CSRFToken": csrf_token})
+
+    assert response.status_code == 401
+
+
 def test_watcher_cannot_open_admin_panel(monkeypatch):
     import firebase_auth
 
