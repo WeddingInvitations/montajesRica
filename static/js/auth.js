@@ -59,10 +59,14 @@ function clearMessage() {
 
 function friendlyAuthError(error) {
   if (error?.stage === 'session-exchange') {
+    if (error.backendMessage) return error.backendMessage;
     if (error.status === 503) {
       return error.backendMessage || 'Google autenticó la cuenta, pero el servidor no tiene permisos para consultar Firebase Auth/Firestore. Para desarrollo local, configura ADC con una cuenta autorizada; en App Engine, revisa los roles de la cuenta de servicio.';
     }
-    return `Google te autenticó, pero el servidor no pudo crear la sesión (HTTP ${error.status || 'desconocido'}). En desarrollo local, comprueba que las credenciales ADC de Google tienen permisos en Firestore y Firebase Authentication.`;
+    if (error.status === 401) {
+      return 'Firebase rechazó el token del inicio de sesión. Comprueba que verificaste el correo y vuelve a iniciar sesión con Google; si se repite, copia el mensaje detallado que devuelve el servidor.';
+    }
+    return `Google te autenticó, pero el servidor no pudo crear la sesión (HTTP ${error.status || 'desconocido'}).`;
   }
   const messages = {
     'auth/configuration-not-found': 'Firebase Authentication aún no está inicializado en montajesrica. En Firebase Console abre Authentication y pulsa “Comenzar”.',

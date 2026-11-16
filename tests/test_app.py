@@ -209,7 +209,7 @@ def test_missing_firebase_permissions_returns_actionable_503(monkeypatch):
     response = client.post("/auth/session", json={"idToken": "valid-shaped-token"}, headers={"X-CSRFToken": csrf_token})
 
     assert response.status_code == 503
-    assert "ADC" in response.get_data(as_text=True)
+    assert "ADC" in response.json["description"]
 
 
 def test_invalid_firebase_token_returns_401(monkeypatch):
@@ -226,6 +226,7 @@ def test_invalid_firebase_token_returns_401(monkeypatch):
     response = client.post("/auth/session", json={"idToken": "invalid-token"}, headers={"X-CSRFToken": csrf_token})
 
     assert response.status_code == 401
+    assert "sesión de Google" in response.json["description"]
 
 
 def test_watcher_cannot_open_admin_panel(monkeypatch):

@@ -169,6 +169,11 @@ def clear_invalid_session_cookie(response):
 @app.errorhandler(503)
 def application_error(error):
     description = getattr(error, "description", "Ha ocurrido un error inesperado.")
+    if request.endpoint == "create_auth_session":
+        response = jsonify({"error": error.name, "description": description})
+        response.status_code = error.code
+        response.headers["Cache-Control"] = "no-store"
+        return response
     return render_template("error.html", message=description), error.code
 
 
