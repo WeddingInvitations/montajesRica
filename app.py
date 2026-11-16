@@ -5,12 +5,14 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from flask import Flask, g, jsonify, render_template, request, send_from_directory
+from flask import Flask, abort, g, jsonify, make_response, render_template, request, send_from_directory
 from flask_wtf.csrf import CSRFProtect
+from firebase_admin import exceptions as firebase_exceptions
 
 from admin_routes import admin_bp
-from club_store import load_club_data
-from security import authenticate_request, is_admin
+from club_store import ensure_user_profile, load_club_data
+from firebase_auth import SESSION_DURATION, create_session_cookie, verify_google_id_token
+from security import SESSION_COOKIE_NAME, authenticate_request
 
 BASE_DIR = Path(__file__).resolve().parent
 app = Flask(__name__)
@@ -18,6 +20,7 @@ app.config["JSON_AS_ASCII"] = False
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.getenv("APP_ENV", "development") == "production"
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
 
 
 def _session_secret() -> str:
@@ -45,7 +48,7 @@ app.register_blueprint(admin_bp)
 
 @app.before_request
 def identify_request():
-    if request.endpoint == "health":
+    if request.endpoint in {"health", "static"}:
         g.current_user = None
         return
     authenticate_request()
@@ -56,13 +59,68 @@ def inject_identity():
     user = getattr(g, "current_user", None)
     return {
         "current_user": user,
-        "current_user_is_admin": bool(user and is_admin(user.get("email"))),
+        "current_user_is_admin": bool(user and user.get("role") == "admin"),
     }
 
 
 @app.get("/")
 def home():
-    return render_template("index.html", club=load_club_data())
+    user = getattr(g, "current_user", None)
+    club = load_club_data() if user else None
+    response = make_response(render_template("index.html", club=club))
+    response.headers["Cache-Control"] = "private, no-store, max-age=0"
+    return response
+
+
+@app.post("/auth/session")
+def create_auth_session():
+    payload = request.get_json(silent=True)
+    id_token = payload.get("idToken") if isinstance(payload, dict) else None
+    if not isinstance(id_token, str) or not id_token or len(id_token) > 12_000:
+        abort(400, description="Falta un token de inicio de sesión válido.")
+    try:
+        claims = verify_google_id_token(id_token)
+        cookie_value = create_session_cookie(id_token)
+        profile = ensure_user_profile(
+            uid=claims["uid"],
+            email=claims["email"],
+            display_name=claims.get("name") or claims["email"].split("@", 1)[0],
+            provider="google.com",
+        )
+        if not profile.get("active", True):
+            abort(403, description="Tu cuenta está desactivada. Contacta con administración.")
+    except ValueError as error:
+        abort(401, description=str(error))
+    except firebase_exceptions.FirebaseError:
+        app.logger.exception("Firebase Auth session creation failed")
+        abort(401, description="Firebase no ha podido validar la cuenta. Inténtalo de nuevo.")
+
+    response = jsonify({"ok": True, "role": profile.get("role", "watcher")})
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        cookie_value,
+        max_age=int(SESSION_DURATION.total_seconds()),
+        httponly=True,
+        secure=app.config["SESSION_COOKIE_SECURE"] or request.is_secure,
+        samesite="Lax",
+        path="/",
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@app.post("/auth/logout")
+def logout():
+    response = jsonify({"ok": True})
+    response.delete_cookie(
+        SESSION_COOKIE_NAME,
+        path="/",
+        secure=app.config["SESSION_COOKIE_SECURE"] or request.is_secure,
+        httponly=True,
+        samesite="Lax",
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.get("/healthz")
@@ -73,6 +131,21 @@ def health():
 @app.get("/logoMontajes.jpeg")
 def club_logo():
     return send_from_directory(BASE_DIR, "logoMontajes.jpeg", max_age=86400)
+
+
+@app.after_request
+def clear_invalid_session_cookie(response):
+    if request.endpoint not in {"static", "club_logo"}:
+        response.headers["Cache-Control"] = "private, no-store, max-age=0"
+    if getattr(g, "clear_firebase_session", False):
+        response.delete_cookie(
+            SESSION_COOKIE_NAME,
+            path="/",
+            secure=app.config["SESSION_COOKIE_SECURE"] or request.is_secure,
+            httponly=True,
+            samesite="Lax",
+        )
+    return response
 
 
 @app.errorhandler(400)

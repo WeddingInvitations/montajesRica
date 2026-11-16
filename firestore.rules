@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // La web no accede directamente con Firebase Web SDK.
+    // Flask usa Firebase Admin SDK y su cuenta de servicio/IAM.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

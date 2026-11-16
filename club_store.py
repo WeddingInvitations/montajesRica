@@ -13,12 +13,9 @@ from typing import Any
 from flask import abort
 
 from datastore_store import (
-    add_admin as datastore_add_admin,
     delete_record as datastore_delete_record,
     get_club as datastore_get_club,
-    list_admins as datastore_list_admins,
     list_records as datastore_list_records,
-    remove_admin as datastore_remove_admin,
     update_record as datastore_update_record,
     update_team as datastore_update_team,
 )
@@ -48,6 +45,45 @@ def datastore_mode_enabled() -> bool:
 
 def _collection_records(name: str) -> list[dict[str, Any]]:
     return [dict(snapshot.to_dict() or {}, id=snapshot.id) for snapshot in firestore_client().collection(name).stream()]
+
+
+def get_user_profile(uid: str) -> dict[str, Any] | None:
+    snapshot = firestore_client().collection("users").document(uid).get()
+    if not snapshot.exists:
+        return None
+    return dict(snapshot.to_dict() or {}, uid=snapshot.id)
+
+
+def ensure_user_profile(uid: str, email: str, display_name: str, provider: str) -> dict[str, Any]:
+    """Create new accounts as watchers and never promote from client-supplied data."""
+    from google.cloud import firestore
+
+    reference = firestore_client().collection("users").document(uid)
+    transaction = firestore_client().transaction()
+
+    @firestore.transactional
+    def create_or_refresh(transaction):
+        snapshot = reference.get(transaction=transaction)
+        existing = snapshot.to_dict() or {} if snapshot.exists else {}
+        role = existing.get("role", "watcher")
+        if role not in {"watcher", "admin"}:
+            role = "watcher"
+        profile = {
+            "uid": uid,
+            "email": email.strip().lower(),
+            "display_name": display_name[:120],
+            "provider": provider,
+            "role": role,
+            "active": existing.get("active", True) is True,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        }
+        if not snapshot.exists:
+            profile["created_at"] = firestore.SERVER_TIMESTAMP
+        transaction.set(reference, profile, merge=True)
+        profile.pop("created_at", None)
+        return {**existing, **profile, "uid": uid}
+
+    return create_or_refresh(transaction)
 
 
 def load_club_data() -> dict[str, Any]:
@@ -151,10 +187,8 @@ def update_team(team_id: str, values: dict[str, str]) -> None:
 
 
 def list_admins() -> list[dict[str, str]]:
-    if datastore_mode_enabled():
-        return datastore_list_admins()
     admins = []
-    for snapshot in firestore_client().collection("admins").stream():
+    for snapshot in firestore_client().collection("users").where("role", "==", "admin").stream():
         record = snapshot.to_dict() or {}
         if record.get("active", True) and record.get("email"):
             admins.append({"email": record["email"], "id": snapshot.id})
@@ -162,28 +196,33 @@ def list_admins() -> list[dict[str, str]]:
 
 
 def add_admin(email: str) -> None:
-    from security import admin_document_id, normalized_email
+    import firebase_admin.auth as firebase_auth
+    from firebase_auth import firebase_app
 
-    cleaned = normalized_email(email)
-    if datastore_mode_enabled():
-        datastore_add_admin(admin_document_id(cleaned), cleaned)
-        return
-    firestore_client().collection("admins").document(admin_document_id(cleaned)).set(
-        {"email": cleaned, "active": True}, merge=True
+    cleaned = email.strip().lower()
+    try:
+        firebase_user = firebase_auth.get_user_by_email(cleaned, app=firebase_app())
+    except firebase_auth.UserNotFoundError:
+        abort(404, description="La cuenta debe iniciar sesión con Google al menos una vez antes de asignarle el rol admin.")
+    providers = {provider.provider_id for provider in firebase_user.provider_data}
+    if firebase_user.disabled or "google.com" not in providers:
+        abort(400, description="La cuenta debe estar activa y tener Google como proveedor de acceso.")
+    ensure_user_profile(
+        uid=firebase_user.uid,
+        email=firebase_user.email or cleaned,
+        display_name=firebase_user.display_name or cleaned.split("@", 1)[0],
+        provider="google.com",
+    )
+    firestore_client().collection("users").document(firebase_user.uid).set(
+        {"role": "admin", "active": True}, merge=True
     )
 
 
-def remove_admin(admin_id: str, current_email: str) -> None:
-    from security import admin_document_id
-
-    if datastore_mode_enabled():
-        datastore_remove_admin(admin_id, admin_document_id(current_email))
-        return
-    admins = firestore_client().collection("admins")
-    current_id = admin_document_id(current_email)
-    if admin_id == current_id:
+def remove_admin(user_id: str, current_uid: str) -> None:
+    if user_id == current_uid:
         abort(400, description="No puedes retirar tu propio acceso de administrador.")
-    reference = admins.document(admin_id)
-    if not reference.get().exists:
+    reference = firestore_client().collection("users").document(user_id)
+    snapshot = reference.get()
+    if not snapshot.exists or (snapshot.to_dict() or {}).get("role") != "admin":
         abort(404, description="No se encontró el administrador.")
-    reference.delete()
+    reference.set({"role": "watcher"}, merge=True)

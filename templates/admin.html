@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#292725">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Administración · {{ club.club_name }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
@@ -18,7 +19,7 @@
           <img class="brand-logo" src="/logoMontajes.jpeg" alt="Logo Montajes Rica">
           <span><strong>Montajes Rica</strong><small>ADMINISTRACIÓN DEL CLUB</small></span>
         </a>
-        <div class="admin-user"><span>{{ current_user.email }}</span><a href="/">Volver al portal ↗</a></div>
+        <div class="admin-user"><span>{{ current_user.email }} · ADMIN</span><a href="/">Volver al portal ↗</a><button class="button-danger" id="logout-button" type="button">Cerrar sesión</button></div>
       </header>
       <div class="admin-intro"><p class="eyebrow">GESTIÓN INTERNA</p><h1>Panel de administración</h1><p>Los cambios se guardan en Firestore y quedan disponibles para los usuarios con sesión de Google.</p></div>
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -132,5 +133,6 @@
       <footer class="admin-footer"><span>Montajes Rica · Acceso de administración restringido</span><a href="/">Volver al portal</a></footer>
     </main>
     <script defer src="{{ url_for('static', filename='js/admin.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/auth.js') }}"></script>
   </body>
 </html>

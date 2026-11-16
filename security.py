@@ -1,19 +1,15 @@
-"""Autenticación de App Engine detrás de Identity-Aware Proxy."""
+"""Autenticación Firebase y autorización basada en rol persistido en Firestore."""
 
 from __future__ import annotations
 
 import hashlib
 import logging
 import os
-from functools import lru_cache
 from typing import Any
-from urllib.request import Request as URLRequest, urlopen
 
 from flask import abort, g, request
 
-IAP_CERTS_URL = "https://www.gstatic.com/iap/verify/public_key"
-IAP_ISSUER = "https://cloud.google.com/iap"
-METADATA_PROJECT_NUMBER_URL = "http://metadata.google.internal/computeMetadata/v1/project/numeric-project-id"
+SESSION_COOKIE_NAME = "montajesrica_session"
 
 
 def normalized_email(email: str) -> str:
@@ -21,103 +17,67 @@ def normalized_email(email: str) -> str:
 
 
 def admin_document_id(email: str) -> str:
-    """Use a stable opaque document ID instead of exposing addresses in paths."""
+    """Compatibilidad de ID opaco para las herramientas antiguas de bootstrap."""
     return hashlib.sha256(normalized_email(email).encode("utf-8")).hexdigest()
 
 
-def verify_iap_identity(assertion: str, audience: str) -> dict[str, Any]:
-    """Cryptographically verify the signed identity assertion issued by IAP."""
-    from google.auth.transport.requests import Request
-    from google.oauth2 import id_token
-
-    claims = id_token.verify_token(
-        assertion,
-        Request(),
-        audience=audience,
-        certs_url=IAP_CERTS_URL,
-    )
-    if claims.get("iss") != IAP_ISSUER:
-        raise ValueError("Unexpected IAP issuer")
-    email = claims.get("email")
-    if not isinstance(email, str) or not email.strip():
-        raise ValueError("IAP identity has no verified email")
-    return {
-        "email": normalized_email(email),
-        "name": claims.get("name") or email.split("@", 1)[0],
-    }
-
-
-@lru_cache(maxsize=1)
-def _iap_audience() -> str:
-    configured = os.getenv("IAP_AUDIENCE", "").strip()
-    if configured:
-        return configured
-    project_id = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCLOUD_PROJECT")
-    if not project_id:
-        raise RuntimeError("Google Cloud project ID is unavailable")
-    metadata_request = URLRequest(METADATA_PROJECT_NUMBER_URL, headers={"Metadata-Flavor": "Google"})
-    with urlopen(metadata_request, timeout=2) as response:
-        project_number = response.read().decode("ascii").strip()
-    if not project_number.isdigit():
-        raise RuntimeError("Google Cloud project number is invalid")
-    return f"projects/{project_number}/apps/{project_id}"
-
-
 def authenticate_request() -> None:
-    """Populate g.current_user; fail closed if IAP is required but misconfigured."""
+    """Verifica cookie Firebase y lee el rol actual desde la colección users."""
     g.current_user = None
-    if os.getenv("REQUIRE_IAP", "false").lower() != "true":
-        if os.getenv("APP_ENV", "development") != "production" and os.getenv("LOCAL_AUTH_BYPASS", "false").lower() == "true":
-            g.current_user = {
-                "email": normalized_email(os.getenv("LOCAL_AUTH_EMAIL", "local@example.invalid")),
-                "name": "Usuario local",
-            }
+    session_cookie = request.cookies.get(SESSION_COOKIE_NAME, "")
+    if not session_cookie:
         return
 
     try:
-        audience = _iap_audience()
+        from firebase_auth import verify_session_cookie
+        from club_store import ensure_user_profile
+
+        claims = verify_session_cookie(session_cookie)
+        if claims.get("firebase", {}).get("sign_in_provider") != "google.com":
+            raise ValueError("La sesión no pertenece al proveedor Google.")
+        if claims.get("email_verified") is not True:
+            raise ValueError("El correo de la sesión no está verificado.")
+        user = ensure_user_profile(
+            uid=claims["uid"],
+            email=claims["email"],
+            display_name=claims.get("name") or claims["email"].split("@", 1)[0],
+            provider="google.com",
+        )
+        if not user.get("active", True):
+            raise ValueError("La cuenta está desactivada.")
+        g.current_user = user
     except Exception:
-        logging.exception("Could not determine the IAP JWT audience")
-        abort(503, description="No se ha podido verificar la configuración de acceso seguro.")
+        logging.info("Firebase session rejected", exc_info=True)
+        g.current_user = None
+        g.clear_firebase_session = True
 
-    assertion = request.headers.get("X-Goog-IAP-JWT-Assertion", "")
-    if not assertion:
-        abort(401, description="Inicia sesión con una cuenta de Google autorizada.")
 
+def is_admin(uid: str | None) -> bool:
+    if not uid:
+        return False
+    user = getattr(g, "current_user", None)
+    if user and user.get("uid") == uid:
+        return user.get("role") == "admin" and user.get("active", True) is True
     try:
-        g.current_user = verify_iap_identity(assertion, audience)
+        from club_store import get_user_profile
+
+        profile = get_user_profile(uid)
+        return bool(profile and profile.get("role") == "admin" and profile.get("active", True) is True)
     except Exception:
-        logging.exception("Rejected invalid IAP identity assertion")
-        abort(401, description="No se pudo verificar tu identidad.")
-
-
-def is_admin(email: str | None) -> bool:
-    if not email:
-        return False
-    if os.getenv("APP_ENV", "development") != "production" and os.getenv("LOCAL_AUTH_BYPASS", "false").lower() == "true":
-        return normalized_email(email) == normalized_email(os.getenv("LOCAL_ADMIN_EMAIL", ""))
-    datastore_mode = os.getenv("USE_DATASTORE", "false").lower() == "true"
-    firestore_mode = os.getenv("USE_FIRESTORE", "false").lower() == "true"
-    if not datastore_mode and not firestore_mode:
+        logging.exception("Could not check the user's Firestore role")
         return False
 
-    try:
-        if datastore_mode:
-            from datastore_store import is_admin as datastore_is_admin
 
-            return datastore_is_admin(admin_document_id(email))
-        from club_store import firestore_client
-
-        document = firestore_client().collection("admins").document(admin_document_id(email)).get()
-        return document.exists and document.to_dict().get("active", True) is True
-    except Exception:
-        logging.exception("Could not check the administrator allowlist")
-        return False
+def require_user() -> dict[str, Any]:
+    user = getattr(g, "current_user", None)
+    if user is None:
+        abort(401, description="Inicia sesión con Google para consultar el club.")
+    if not user.get("active", True):
+        abort(403, description="Tu cuenta está desactivada.")
+    return user
 
 
 def require_admin() -> None:
-    user = getattr(g, "current_user", None)
-    if user is None:
-        abort(401, description="Inicia sesión antes de continuar.")
-    if not is_admin(user.get("email")):
-        abort(403, description="Tu cuenta no tiene permisos de administración.")
+    user = require_user()
+    if user.get("role") != "admin":
+        abort(403, description="Tu cuenta tiene rol watcher; solo administración puede realizar cambios.")

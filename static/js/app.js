@@ -3,6 +3,7 @@
   if (!dataNode) return;
 
   const club = JSON.parse(dataNode.textContent || '{}');
+  if (!club) return;
   const themeToggle = document.getElementById('theme-toggle');
   const storedTheme = localStorage.getItem('montajes-rica-theme');
   const preferredTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';

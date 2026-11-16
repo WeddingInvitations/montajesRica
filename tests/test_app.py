@@ -2,8 +2,13 @@ from app import app, load_club_data
 from security import admin_document_id
 
 
-def test_home_displays_three_configurable_teams():
-    app.config["TESTING"] = True
+def test_home_displays_three_teams_after_authentication(monkeypatch):
+    from flask import g
+
+    monkeypatch.setattr("app.authenticate_request", lambda: setattr(g, "current_user", {
+        "uid": "firebase-watcher-uid", "email": "watcher@example.com", "display_name": "Watcher", "role": "watcher", "active": True
+    }))
+    monkeypatch.setattr("app.load_club_data", lambda: load_club_data())
     response = app.test_client().get("/")
     assert response.status_code == 200
     page = response.get_data(as_text=True)
@@ -44,16 +49,14 @@ def test_admin_document_id_is_normalized_and_opaque():
     assert "@" not in admin_document_id("club@example.com")
 
 
-def test_admin_dashboard_renders_for_an_authorized_iap_user(monkeypatch):
+def test_admin_dashboard_renders_for_an_authorized_firebase_admin(monkeypatch):
     import admin_routes
-    import security
+    from flask import g
 
-    monkeypatch.setenv("REQUIRE_IAP", "true")
-    monkeypatch.setenv("IAP_AUDIENCE", "test-audience")
     monkeypatch.setenv("USE_FIRESTORE", "true")
-    monkeypatch.setattr(security, "verify_iap_identity", lambda assertion, audience: {"email": "admin@example.com", "name": "Admin"})
-    monkeypatch.setattr(security, "is_admin", lambda email: True)
-    monkeypatch.setattr("app.is_admin", lambda email: True)
+    monkeypatch.setattr("app.authenticate_request", lambda: setattr(g, "current_user", {
+        "uid": "firebase-admin-uid", "email": "admin@example.com", "display_name": "Admin", "role": "admin", "active": True
+    }))
     monkeypatch.setattr(admin_routes, "storage_enabled", lambda: True)
     sample_club = {
         "club_name": "Montajes Rica",
@@ -67,7 +70,7 @@ def test_admin_dashboard_renders_for_an_authorized_iap_user(monkeypatch):
     monkeypatch.setattr(admin_routes, "list_admins", lambda: [{"email": "admin@example.com", "id": "opaque-id"}])
     monkeypatch.setitem(app.config, "TESTING", True)
 
-    response = app.test_client().get("/admin", headers={"X-Goog-IAP-JWT-Assertion": "verified-by-test"})
+    response = app.test_client().get("/admin")
 
     assert response.status_code == 200
     page = response.get_data(as_text=True)
@@ -99,16 +102,14 @@ def test_match_pairing_accepts_two_team_players_and_set_scores():
     }]
 
 
-def test_admin_can_create_player_only_after_iap_authorization(monkeypatch):
+def test_admin_can_create_player_only_after_firebase_role_check(monkeypatch):
     import admin_routes
-    import security
+    from flask import g
 
-    monkeypatch.setenv("REQUIRE_IAP", "true")
-    monkeypatch.setenv("IAP_AUDIENCE", "test-audience")
     monkeypatch.setenv("USE_FIRESTORE", "true")
-    monkeypatch.setattr(security, "verify_iap_identity", lambda assertion, audience: {"email": "admin@example.com", "name": "Admin"})
-    monkeypatch.setattr(security, "is_admin", lambda email: True)
-    monkeypatch.setattr("app.is_admin", lambda email: True)
+    monkeypatch.setattr("app.authenticate_request", lambda: setattr(g, "current_user", {
+        "uid": "firebase-admin-uid", "email": "admin@example.com", "display_name": "Admin", "role": "admin", "active": True
+    }))
     monkeypatch.setattr(admin_routes, "storage_enabled", lambda: True)
     monkeypatch.setattr(admin_routes, "load_club_data", lambda: {
         "teams": [{"id": "equipo-prueba", "name": "Equipo de prueba"}],
@@ -120,9 +121,84 @@ def test_admin_can_create_player_only_after_iap_authorization(monkeypatch):
 
     response = app.test_client().post(
         "/admin/players",
-        headers={"X-Goog-IAP-JWT-Assertion": "verified-by-test"},
         data={"name": "Jugador de prueba", "team_id": "equipo-prueba", "handedness": "Drive"},
     )
 
     assert response.status_code == 302
     assert created == [("players", {"name": "Jugador de prueba", "team_id": "equipo-prueba", "handedness": "Drive"})]
+
+
+def test_anonymous_home_does_not_load_or_expose_private_club_data(monkeypatch):
+    monkeypatch.setattr("app.load_club_data", lambda: (_ for _ in ()).throw(AssertionError("private data must not load")))
+    response = app.test_client().get("/")
+    assert response.status_code == 200
+    page = response.get_data(as_text=True)
+    assert "Continuar con Google" in page
+    assert 'id="club-data" type="application/json">null' in page
+
+
+def test_firebase_identity_profile_defaults_to_watcher(monkeypatch):
+    import security
+    import firebase_auth
+
+    monkeypatch.setattr(firebase_auth, "verify_session_cookie", lambda cookie: {
+        "uid": "watcher-uid",
+        "email": "watcher@example.com",
+        "email_verified": True,
+        "firebase": {"sign_in_provider": "google.com"},
+    })
+    monkeypatch.setattr("club_store.ensure_user_profile", lambda **kwargs: {
+        "uid": kwargs["uid"], "email": kwargs["email"], "role": "watcher", "active": True
+    })
+    with app.test_request_context("/", headers={"Cookie": "montajesrica_session=firebase-session"}):
+        security.authenticate_request()
+        from flask import g
+
+        assert g.current_user["role"] == "watcher"
+        assert security.is_admin(g.current_user["uid"]) is False
+
+
+def test_firebase_id_token_is_exchanged_for_http_only_session_cookie(monkeypatch):
+    import re
+
+    monkeypatch.setattr("app.verify_google_id_token", lambda token: {
+        "uid": "new-watcher", "email": "watcher@example.com", "email_verified": True, "name": "Watcher"
+    })
+    monkeypatch.setattr("app.create_session_cookie", lambda token: "signed-firebase-session")
+    monkeypatch.setattr("app.ensure_user_profile", lambda **kwargs: {
+        "uid": kwargs["uid"], "email": kwargs["email"], "role": "watcher", "active": True
+    })
+    client = app.test_client()
+    home = client.get("/")
+    csrf_token = re.search(r'<meta name="csrf-token" content="([^"]+)"', home.get_data(as_text=True)).group(1)
+
+    response = client.post(
+        "/auth/session",
+        json={"idToken": "firebase-id-token"},
+        headers={"X-CSRFToken": csrf_token},
+    )
+
+    assert response.status_code == 200
+    assert response.json == {"ok": True, "role": "watcher"}
+    cookie = response.headers["Set-Cookie"]
+    assert "montajesrica_session=signed-firebase-session" in cookie
+    assert "HttpOnly" in cookie
+    assert "SameSite=Lax" in cookie
+
+
+def test_watcher_cannot_open_admin_panel(monkeypatch):
+    import firebase_auth
+
+    monkeypatch.setattr(firebase_auth, "verify_session_cookie", lambda cookie: {
+        "uid": "watcher-uid", "email": "watcher@example.com", "email_verified": True,
+        "firebase": {"sign_in_provider": "google.com"},
+    })
+    monkeypatch.setattr("club_store.ensure_user_profile", lambda **kwargs: {
+        "uid": kwargs["uid"], "email": kwargs["email"], "role": "watcher", "active": True
+    })
+
+    client = app.test_client()
+    client.set_cookie("montajesrica_session", "valid-session")
+    response = client.get("/admin")
+
+    assert response.status_code == 403

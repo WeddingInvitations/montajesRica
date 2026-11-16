@@ -1,21 +1,73 @@
 # Montajes Rica · Portal de pádel
 
-Portal en español para Masculino 500, Masculino Future y Femenino. Incluye consulta de plantillas, partidos/resultados y clasificación, además de un panel protegido para administrar jugadores, partidos, parejas, sets y administradores.
+Portal en español para los equipos Masculino 500, Masculino Future y Femenino. Permite consultar plantillas, partidos/resultados y clasificación. Las operaciones de gestión se hacen desde un panel solo para cuentas con rol `admin`.
 
 ## Tecnologías y datos
 
-- Python 3.11, Flask, HTML, CSS y JavaScript.
-- Google App Engine Standard, Firestore Native, Cloud Build e Identity-Aware Proxy (IAP).
-- La aplicación requiere una cuenta de Google. Solo las cuentas con rol `admin` pueden modificar datos.
-- Configuración del club en `club/current`; jugadores, partidos, clasificaciones y administradores en `players`, `matches`, `standings` y `admins`.
-- Los datos personales no se incluyen en el código ni en GitHub. `listadoJugadores.xlsx` está excluido por `.gitignore`.
-- SNP Galaxy queda aplazado; no se guarda ninguna contraseña ni se automatiza el inicio de sesión.
+- Python 3.11, Flask, plantillas Jinja, CSS y JavaScript.
+- Google App Engine Standard, Firestore Native y Firebase Authentication.
+- Usuarios autenticados con Google; todos se crean inicialmente con rol `watcher` (solo lectura).
+- El rol persistente está en `users/{firebase_uid}`. Solo un administrador puede elevar una cuenta ya existente de Firebase Auth a `admin`; nunca se acepta un rol enviado por el navegador.
+- Configuración en `club/current`; jugadores, partidos y clasificación en `players`, `matches` y `standings`.
+- Sin Cloud Functions: la lógica de servidor está en Flask/App Engine y usa Firebase Admin SDK con la cuenta de servicio de App Engine.
+- La web no usa el SDK cliente de Firestore. Todas las lecturas/escrituras privadas pasan por Flask, sesión Firebase verificada y autorización del rol.
+- SNP Galaxy queda aplazado; no guardamos sus credenciales ni automatizamos su acceso.
 
-> Para permitir acceso de lectura a cualquier cuenta de Google, asigna `roles/iap.httpsResourceAccessor` a `allAuthenticatedUsers`. Si no queréis exponer las fichas a todas esas cuentas, restringid esa política a un Google Group/cuentas concretas antes de habilitar datos reales.
+## Firebase Authentication
+
+La configuración pública del cliente está en `static/js/firebase-config.js`; incluye el `apiKey` de la app Web, que identifica la aplicación y **no es una clave de servicio**. Nunca pongas credenciales de cuentas de servicio, claves privadas ni secretos OAuth en ese archivo.
+
+En Firebase Console, proyecto `montajesrica`:
+
+1. Abre Authentication → Sign-in method y habilita **Google**; selecciona el correo de soporte que corresponda.
+2. En Authentication → Settings → Authorized domains añade `montajesrica.ew.r.appspot.com`, `localhost` y `127.0.0.1` (para desarrollo local). El dominio Firebase `montajesrica.firebaseapp.com` suele estar ya en la lista.
+3. Verifica que `624919270102` es el proyecto correcto asociado a la app Web y a la base Firestore Native.
+
+La aplicación usa el flujo Google de Firebase JS SDK. El ID token se intercambia por una cookie de sesión Firebase `HttpOnly`, `Secure` en producción, `SameSite=Lax`, con duración de cinco días. El servidor comprueba firma, proyecto, proveedor Google, email verificado, inicio reciente y revocación. CSRF se exige para crear/cerrar la sesión y para cada formulario de administración.
+
+## Roles y altas de usuarios
+
+- Cualquier persona que pueda completar Google Sign-In puede crear su cuenta y consultar el portal; el primer acceso crea `users/{uid}` con `role: "watcher"`.
+- Ser usuario de Firebase Authentication **no da rol admin por sí solo**. Para evitar que un alta pública se convierta en privilegio, un admin debe elevar explícitamente el rol en la colección `users`.
+- Un admin puede introducir en el panel el correo de una cuenta ya creada en Firebase Authentication. También se puede usar el script de bootstrap. Al retirar acceso, el rol vuelve a `watcher`; no se borra la cuenta de Firebase Auth.
+- El documento almacena `uid`, `email`, `display_name`, `provider`, `role`, `active`, `created_at` y `updated_at`. Los clientes no pueden modificar esos documentos.
+
+Para asignar al primer admin, la cuenta debe haber iniciado sesión una vez para existir en Firebase Authentication; luego, desde una terminal autenticada como operador autorizado:
+
+```powershell
+gcloud auth login
+python -m scripts.set_user_role --project montajesrica --role admin --gcloud-auth
+```
+
+El script solicita el email directamente en la terminal, verifica que la cuenta existe y tiene Google vinculado, y crea/actualiza `users/{uid}`. No escribe nombres de personas en el código ni en Git.
+
+## Cargar jugadores desde el Excel
+
+`listadoJugadores.xlsx` se mantiene local y está excluido de Git. Sus hojas/columnas se mapean así:
+
+- `Masc 500` → `equipo-1` (Masculino 500)
+- `Masc Future` → `equipo-2` (Masculino Future)
+- `Fem` → `equipo-3` (Femenino)
+- `Jugador` y `Posición` (`Drive` o `Revés`).
+
+El archivo ya se validó y cargó en el proyecto `montajesrica`: 65 perfiles en `players` (20, 23 y 22 por equipo). Para validar un Excel futuro sin imprimir nombres ni escribir datos:
+
+```powershell
+python -m scripts.import_players --file .\listadoJugadores.xlsx
+```
+
+Para una importación confirmada:
+
+```powershell
+gcloud config set project montajesrica
+python -m scripts.import_players --file .\listadoJugadores.xlsx --project montajesrica --gcloud-auth --apply
+```
+
+El importador evita repetidos por ID o por nombre/equipo. `--replace` sobrescribe y requiere `--apply`; úsalo solo tras revisar una copia de seguridad.
 
 ## Desarrollo local
 
-En Windows PowerShell, con Python 3.11:
+Con Python 3.11 en Windows PowerShell:
 
 ```powershell
 py -3.11 -m venv .venv
@@ -25,66 +77,23 @@ Copy-Item .env.example .env
 python -m flask --app app run --debug
 ```
 
-La vista local usa los marcadores de `data/club.json`. No conecta a Firestore, no autentica usuarios y no guarda cambios. El panel real se habilita en Google Cloud tras configurar IAP y Firestore.
+Configura en Firebase Auth `localhost` y el dominio local que uses. Para persistir perfiles localmente, autentica también Application Default Credentials con acceso al proyecto; no uses credenciales de servicio descargadas en el repositorio. La página no carga ningún dato del club hasta validar una sesión.
 
-Para validar:
+Pruebas:
 
 ```powershell
 python -m pytest
 ```
 
-## Hoja de jugadores
+## Seguridad de Firestore y App Engine
 
-El archivo local ignorado `listadoJugadores.xlsx` contiene:
+- `firestore.rules` deniega todo acceso desde clientes Firebase. Flask usa Admin SDK/ADC y el permiso IAM de la cuenta runtime, por lo que las reglas Firestore no reemplazan la autorización del servidor.
+- La cuenta de servicio runtime de App Engine necesita `roles/datastore.user` para acceder a Firestore Native y `roles/secretmanager.secretAccessor` **solo** al secreto `montajes-rica-flask-secret`.
+- La clave de Flask se lee de Secret Manager al iniciar. No se debe poner en `app.yaml`, GitHub, Firebase Web config ni en el navegador.
+- App Engine está configurado con `FIREBASE_PROJECT_ID=montajesrica`, Firestore habilitado, mínimo cero y máximo dos instancias.
+- `firebase.json` apunta a las reglas de Firestore. Tras revisar cambios, se pueden desplegar desde la raíz con Firebase CLI: `firebase deploy --only firestore:rules --project montajesrica`.
+- Configura alertas de presupuesto: son avisos, no límites de gasto.
 
-- `Masc 500` → `equipo-1` (Masculino 500)
-- `Masc Future` → `equipo-2` (Masculino Future)
-- `Fem` → `equipo-3` (Femenino)
-- Columnas `Jugador` y `Posición`; valores admitidos: `Drive` y `Revés`.
+## Despliegue
 
-Primero valida y cuenta sin mostrar nombres ni escribir datos:
-
-```powershell
-python -m scripts.import_players --file .\listadoJugadores.xlsx
-```
-
-La primera carga de este archivo ya se realizó en `montajesrica`. Para repetirla en el futuro, autentícate con `gcloud auth login` y confirma expresamente la escritura:
-
-```powershell
-gcloud config set project montajesrica
-python -m scripts.import_players --file .\listadoJugadores.xlsx --project montajesrica --gcloud-auth --apply
-```
-
-El importador es idempotente por fila y también evita duplicar el mismo nombre/equipo. `--replace` permite sobrescribir fichas importadas y requiere también `--apply`; úsalo solo tras revisar una copia de seguridad. No subas el Excel a GitHub.
-
-## Partidos
-
-El panel administra equipo, rival, división, fecha, hora, lugar, localía, estado y marcador general (por ejemplo `3-2`). Permite registrar hasta cinco parejas, elegir dos jugadores del equipo por pareja, el rival y los sets (por ejemplo `6-4, 7-5`). Las entradas se validan en el servidor; solo administradores pueden crear, actualizar o borrar.
-
-## Configuración manual en Google Cloud
-
-No se crean recursos ni se despliega desde este asistente:
-
-1. El proyecto `montajesrica` tiene la base `(default)` en **Firestore Native**, región `eur3`; la estructura inicial y las fichas del Excel ya se cargaron en esta base.
-2. Asociar facturación si no está hecha, habilitar App Engine Standard, Cloud Build, Secret Manager e IAP y elegir con cuidado la ubicación de App Engine.
-3. En Secret Manager crear `montajes-rica-flask-secret` con un valor aleatorio largo. Conceder a la cuenta runtime de App Engine `roles/secretmanager.secretAccessor` limitado a ese secreto. La cuenta runtime y quien ejecute importaciones deben tener `roles/datastore.user` (permiso IAM usado por Firestore). No se necesitan claves JSON ni credenciales de Firebase en el navegador.
-4. Habilitar IAP para App Engine y otorgar `roles/iap.httpsResourceAccessor` a `allAuthenticatedUsers` para lectura abierta a cualquier identidad Google, **o** a un Google Group/cuentas concretas. El rol de administrador de la aplicación es independiente de IAM.
-5. El documento `club/current` ya está inicializado. Para crear el primer admin, usa ADC o la sesión activa de gcloud. El script solicita el email en la terminal y no lo guarda en el código:
-
-	```powershell
-	gcloud auth login
-	python -m scripts.bootstrap_admin --project montajesrica --gcloud-auth
-	```
-
-	El admin inicial puede añadir y retirar otros administradores desde el panel.
-6. Revisa la política de acceso y confirma que los jugadores conocen la visibilidad prevista. Ejecuta primero el importador en modo de validación y luego con `--apply`.
-7. Conectar el repositorio a un trigger Cloud Build de la rama principal. Dar a la cuenta de Build permisos mínimos (`roles/appengine.deployer` y `roles/iam.serviceAccountUser` sobre la cuenta runtime apropiada). El trigger ejecuta `gcloud app deploy app.yaml --quiet`.
-
-`app.yaml` exige IAP y usa Firestore Native en producción. La audiencia IAP se deriva del metadata server de App Engine; la clave de Flask se lee de Secret Manager al iniciar. Comprueba en Cloud Console que IAP protege el servicio antes de introducir datos reales.
-
-## Privacidad y operación
-
-- Si IAP concede acceso a `allAuthenticatedUsers`, cualquier persona con cuenta Google puede ver los nombres, equipo y lado de juego. Restringe IAP si eso no es adecuado y confirma el uso previsto con los jugadores.
-- Las reglas Firestore no sustituyen autorización del servidor: no hay SDK cliente de Firestore. Las escrituras pasan por Flask, IAP, CSRF y comprobación del rol admin.
-- No registres credenciales ni datos personales en logs o Git. Revisa cambios antes de hacer commit.
-- Configura alertas de presupuesto: no limitan el gasto. No despliegues hasta haber validado IAP, Secret Manager, Firestore y accesos.
+Cloud Build ejecuta las pruebas Python y después `gcloud app deploy app.yaml --quiet`. El propietario del proyecto debe mantener configurado el trigger de la rama principal y permisos mínimos en la cuenta de Build (`roles/appengine.deployer` y `roles/iam.serviceAccountUser` sobre la cuenta runtime). Los cambios de aplicación se despliegan únicamente al subirlos a la rama conectada; las reglas Firebase se despliegan por separado.

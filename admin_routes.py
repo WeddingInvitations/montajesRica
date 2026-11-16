@@ -1,4 +1,4 @@
-"""Vistas y operaciones de administración protegidas por Google IAP."""
+"""Vistas y operaciones protegidas por sesiones Firebase y rol admin en Firestore."""
 
 from __future__ import annotations
 
@@ -298,6 +298,6 @@ def create_admin():
 
 @admin_bp.post("/admins/<admin_id>/delete")
 def remove_admin_route(admin_id: str):
-    remove_admin(admin_id, g.current_user["email"])
+    remove_admin(admin_id, g.current_user["uid"])
     flash("Permisos de administración retirados.", "success")
     return redirect(url_for("admin.dashboard", _anchor="administradores"))

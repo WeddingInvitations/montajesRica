@@ -10,7 +10,7 @@ automatic_scaling:
 env_variables:
   APP_ENV: production
   GOOGLE_CLOUD_PROJECT: montajesrica
-  REQUIRE_IAP: "true"
+  FIREBASE_PROJECT_ID: montajesrica
   USE_FIRESTORE: "true"
   USE_DATASTORE: "false"
 
