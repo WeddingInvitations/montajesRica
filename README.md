@@ -23,7 +23,7 @@ En Firebase Console, proyecto `montajesrica`:
 2. En Authentication → Settings → Authorized domains añade `montajesrica.ew.r.appspot.com`, `localhost` y `127.0.0.1` (para desarrollo local). El dominio Firebase `montajesrica.firebaseapp.com` suele estar ya en la lista.
 3. Verifica que `624919270102` es el proyecto correcto asociado a la app Web y a la base Firestore Native.
 
-La aplicación usa el flujo Google de Firebase JS SDK. El ID token se intercambia por una cookie de sesión Firebase `HttpOnly`, `Secure` en producción, `SameSite=Lax`, con duración de cinco días. El servidor comprueba firma, proyecto, proveedor Google, email verificado, inicio reciente y revocación. CSRF se exige para crear/cerrar la sesión y para cada formulario de administración.
+La aplicación ofrece acceso con Google y correo/contraseña. Las cuentas nuevas creadas con email reciben un enlace de verificación antes de poder entrar. En el primer acceso Google se pide enlazar una contraseña a la misma cuenta Firebase; los siguientes accesos pueden usar cualquiera de los dos métodos. El flujo usa Firebase JS SDK y los tokens se intercambian por una cookie `HttpOnly`, `Secure` en producción, `SameSite=Lax`, con duración de cinco días. El servidor comprueba firma, proyecto, proveedor permitido, correo verificado, inicio reciente y revocación. CSRF se exige para crear/cerrar la sesión y para cada formulario de administración.
 
 ## Roles y altas de usuarios
 
@@ -77,7 +77,15 @@ Copy-Item .env.example .env
 python -m flask --app app run --debug
 ```
 
-Configura en Firebase Auth `localhost` y el dominio local que uses. Para persistir perfiles localmente, autentica también Application Default Credentials con acceso al proyecto; no uses credenciales de servicio descargadas en el repositorio. La página no carga ningún dato del club hasta validar una sesión.
+Configura en Firebase Auth `localhost` y el dominio local que uses. Flask también necesita ADC de una cuenta que tenga acceso a Firestore y Firebase Auth; `gcloud auth login` por sí solo no configura esas credenciales para Python. En el flujo de autorización, selecciona una cuenta con permisos en `montajesrica` (no una cuenta sin acceso):
+
+```powershell
+gcloud config set project montajesrica
+gcloud auth application-default login
+gcloud auth application-default set-quota-project montajesrica
+```
+
+La cuenta local necesita `roles/datastore.user` para los perfiles en Firestore y `roles/firebaseauth.viewer` para comprobar usuario/sesión revocada. No uses credenciales de servicio descargadas en el repositorio. La página no carga ningún dato del club hasta validar una sesión.
 
 Pruebas:
 

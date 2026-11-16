@@ -134,6 +134,9 @@ def test_anonymous_home_does_not_load_or_expose_private_club_data(monkeypatch):
     assert response.status_code == 200
     page = response.get_data(as_text=True)
     assert "Continuar con Google" in page
+    assert 'id="email-auth-form"' in page
+    assert "Crear una cuenta" in page
+    assert 'id="google-password-setup"' in page
     assert 'id="club-data" type="application/json">null' in page
 
 
@@ -161,13 +164,18 @@ def test_firebase_identity_profile_defaults_to_watcher(monkeypatch):
 def test_firebase_id_token_is_exchanged_for_http_only_session_cookie(monkeypatch):
     import re
 
-    monkeypatch.setattr("app.verify_google_id_token", lambda token: {
-        "uid": "new-watcher", "email": "watcher@example.com", "email_verified": True, "name": "Watcher"
+    monkeypatch.setattr("app.verify_firebase_id_token", lambda token: {
+        "uid": "new-watcher", "email": "watcher@example.com", "email_verified": True, "name": "Watcher",
+        "firebase": {"sign_in_provider": "password"},
     })
     monkeypatch.setattr("app.create_session_cookie", lambda token: "signed-firebase-session")
-    monkeypatch.setattr("app.ensure_user_profile", lambda **kwargs: {
-        "uid": kwargs["uid"], "email": kwargs["email"], "role": "watcher", "active": True
-    })
+    profile_provider = []
+
+    def create_profile(**kwargs):
+        profile_provider.append(kwargs["provider"])
+        return {"uid": kwargs["uid"], "email": kwargs["email"], "role": "watcher", "active": True}
+
+    monkeypatch.setattr("app.ensure_user_profile", create_profile)
     client = app.test_client()
     home = client.get("/")
     csrf_token = re.search(r'<meta name="csrf-token" content="([^"]+)"', home.get_data(as_text=True)).group(1)
@@ -180,6 +188,7 @@ def test_firebase_id_token_is_exchanged_for_http_only_session_cookie(monkeypatch
 
     assert response.status_code == 200
     assert response.json == {"ok": True, "role": "watcher"}
+    assert profile_provider[0] == "password"
     cookie = response.headers["Set-Cookie"]
     assert "montajesrica_session=signed-firebase-session" in cookie
     assert "HttpOnly" in cookie

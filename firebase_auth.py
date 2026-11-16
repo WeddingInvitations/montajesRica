@@ -25,13 +25,13 @@ def firebase_app() -> firebase_admin.App:
         return firebase_admin.initialize_app(options={"projectId": project_id})
 
 
-def verify_google_id_token(id_token: str, now: float | None = None) -> dict[str, Any]:
+def verify_firebase_id_token(id_token: str, now: float | None = None) -> dict[str, Any]:
     claims = auth.verify_id_token(id_token, app=firebase_app(), check_revoked=True)
     firebase_claims = claims.get("firebase") or {}
-    if firebase_claims.get("sign_in_provider") != "google.com":
-        raise ValueError("El acceso debe realizarse con una cuenta Google.")
+    if firebase_claims.get("sign_in_provider") not in {"google.com", "password"}:
+        raise ValueError("El acceso debe realizarse con Google o correo y contraseña.")
     if claims.get("email_verified") is not True:
-        raise ValueError("La cuenta Google debe tener el correo verificado.")
+        raise ValueError("Debes verificar el correo antes de acceder al club.")
     if not claims.get("uid") or not claims.get("email"):
         raise ValueError("El token no contiene una identidad de usuario válida.")
     import time
@@ -41,6 +41,11 @@ def verify_google_id_token(id_token: str, now: float | None = None) -> dict[str,
     if not isinstance(auth_time, (int, float)) or current_time - auth_time > RECENT_SIGN_IN_SECONDS or auth_time > current_time + 30:
         raise ValueError("Vuelve a iniciar sesión para crear una sesión segura.")
     return claims
+
+
+def verify_google_id_token(id_token: str, now: float | None = None) -> dict[str, Any]:
+    """Backward-compatible alias for tests or callers using the original name."""
+    return verify_firebase_id_token(id_token, now=now)
 
 
 def create_session_cookie(id_token: str) -> str:

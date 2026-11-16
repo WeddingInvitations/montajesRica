@@ -33,15 +33,16 @@ def authenticate_request() -> None:
         from club_store import ensure_user_profile
 
         claims = verify_session_cookie(session_cookie)
-        if claims.get("firebase", {}).get("sign_in_provider") != "google.com":
-            raise ValueError("La sesión no pertenece al proveedor Google.")
+        provider = claims.get("firebase", {}).get("sign_in_provider")
+        if provider not in {"google.com", "password"}:
+            raise ValueError("La sesión no pertenece a un proveedor permitido.")
         if claims.get("email_verified") is not True:
             raise ValueError("El correo de la sesión no está verificado.")
         user = ensure_user_profile(
             uid=claims["uid"],
             email=claims["email"],
             display_name=claims.get("name") or claims["email"].split("@", 1)[0],
-            provider="google.com",
+            provider=provider,
         )
         if not user.get("active", True):
             raise ValueError("La cuenta está desactivada.")

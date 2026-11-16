@@ -8,10 +8,11 @@ from pathlib import Path
 from flask import Flask, abort, g, jsonify, make_response, render_template, request, send_from_directory
 from flask_wtf.csrf import CSRFProtect
 from firebase_admin import exceptions as firebase_exceptions
+from werkzeug.exceptions import HTTPException
 
 from admin_routes import admin_bp
 from club_store import ensure_user_profile, load_club_data
-from firebase_auth import SESSION_DURATION, create_session_cookie, verify_google_id_token
+from firebase_auth import SESSION_DURATION, create_session_cookie, verify_firebase_id_token
 from security import SESSION_COOKIE_NAME, authenticate_request
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -79,13 +80,13 @@ def create_auth_session():
     if not isinstance(id_token, str) or not id_token or len(id_token) > 12_000:
         abort(400, description="Falta un token de inicio de sesión válido.")
     try:
-        claims = verify_google_id_token(id_token)
+        claims = verify_firebase_id_token(id_token)
         cookie_value = create_session_cookie(id_token)
         profile = ensure_user_profile(
             uid=claims["uid"],
             email=claims["email"],
             display_name=claims.get("name") or claims["email"].split("@", 1)[0],
-            provider="google.com",
+            provider=claims.get("firebase", {}).get("sign_in_provider", "unknown"),
         )
         if not profile.get("active", True):
             abort(403, description="Tu cuenta está desactivada. Contacta con administración.")
@@ -94,6 +95,11 @@ def create_auth_session():
     except firebase_exceptions.FirebaseError:
         app.logger.exception("Firebase Auth session creation failed")
         abort(401, description="Firebase no ha podido validar la cuenta. Inténtalo de nuevo.")
+    except HTTPException:
+        raise
+    except Exception:
+        app.logger.exception("Could not exchange Firebase identity for an application session")
+        abort(503, description="El servidor no pudo completar la sesión. Comprueba sus permisos de Firebase/Firestore.")
 
     response = jsonify({"ok": True, "role": profile.get("role", "watcher")})
     response.set_cookie(

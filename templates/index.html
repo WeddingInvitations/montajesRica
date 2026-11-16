@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/match-details.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-forms.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-flow.css') }}">
     <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
   </head>
   <body>
@@ -20,10 +22,35 @@
         <img class="auth-logo" src="/logoMontajes.jpeg" alt="Logo Montajes Rica">
         <p class="eyebrow">CLUB DE PÁDEL</p>
         <h1>Bienvenido a <span>Montajes Rica</span></h1>
-        <p>Inicia sesión con Google para consultar equipos, jugadores, partidos y clasificaciones.</p>
+        <p>Accede con Google o con tu correo y contraseña para consultar el club.</p>
         <button class="google-signin" id="google-signin" type="button"><span class="google-g" aria-hidden="true">G</span> Continuar con Google</button>
+        <div class="auth-divider"><span>o con correo electrónico</span></div>
+        <form id="email-auth-form" class="email-auth-form">
+          <label for="auth-email">Correo electrónico</label>
+          <input id="auth-email" name="email" type="email" autocomplete="email" maxlength="254" required>
+          <label for="auth-password">Contraseña</label>
+          <input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="6" required>
+          <div class="confirm-password-wrap hidden" id="confirm-password-wrap">
+            <label for="auth-password-confirm">Repite la contraseña</label>
+            <input id="auth-password-confirm" name="password-confirm" type="password" autocomplete="new-password" minlength="6">
+          </div>
+          <button class="email-submit" id="email-submit" type="submit">Iniciar sesión</button>
+          <div class="auth-form-links"><button class="auth-link" id="forgot-password" type="button">¿Olvidaste la contraseña?</button><button class="auth-link" id="toggle-register" type="button">Crear una cuenta</button></div>
+        </form>
+        <section class="google-password-setup hidden" id="google-password-setup" aria-labelledby="google-password-title">
+          <h2 id="google-password-title">Crea tu contraseña</h2>
+          <p>Es la primera vez que accedes con Google. Crea una contraseña para poder entrar también con tu correo.</p>
+          <form id="google-password-form" class="email-auth-form">
+            <label for="google-password">Contraseña nueva</label>
+            <input id="google-password" type="password" autocomplete="new-password" minlength="6" required>
+            <label for="google-password-confirm">Repite la contraseña</label>
+            <input id="google-password-confirm" type="password" autocomplete="new-password" minlength="6" required>
+            <button class="email-submit" id="save-google-password" type="submit">Guardar contraseña y continuar</button>
+          </form>
+          <button class="auth-link google-password-cancel" id="cancel-google-password" type="button">Ahora no</button>
+        </section>
         <p class="auth-error hidden" id="auth-error" role="alert"></p>
-        <p class="auth-privacy">Tu cuenta tendrá acceso de solo lectura. Los cambios están reservados a las personas con rol admin.</p>
+        <p class="auth-privacy">Las cuentas nuevas tendrán acceso de solo lectura. La administración requiere rol admin.</p>
       </section>
     </main>
     {% if current_user %}
