@@ -12,6 +12,7 @@ venv/
 !.env.example
 *.key
 secrets/
+*.xlsx
 
 # Editors and OS
 .vscode/

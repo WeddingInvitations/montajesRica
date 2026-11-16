@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#292725">
+    <title>Administración · {{ club.club_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-pairings.css') }}">
+  </head>
+  <body>
+    <main class="admin-wrap">
+      <header class="admin-header">
+        <a class="admin-brand" href="/">
+          <img class="brand-logo" src="/logoMontajes.jpeg" alt="Logo Montajes Rica">
+          <span><strong>Montajes Rica</strong><small>ADMINISTRACIÓN DEL CLUB</small></span>
+        </a>
+        <div class="admin-user"><span>{{ current_user.email }}</span><a href="/">Volver al portal ↗</a></div>
+      </header>
+      <div class="admin-intro"><p class="eyebrow">GESTIÓN INTERNA</p><h1>Panel de administración</h1><p>Los cambios se guardan en Firestore y quedan disponibles para los usuarios con sesión de Google.</p></div>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}<div class="flash-list">{% for category, message in messages %}<p class="flash flash-{{ category }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+      {% endwith %}
+      <nav class="admin-nav" aria-label="Secciones de administración"><a href="#equipos">Equipos</a><a href="#jugadores">Jugadores</a><a href="#partidos">Partidos y resultados</a><a href="#clasificacion">Clasificación</a><a href="#administradores">Administradores</a></nav>
+
+      <section class="admin-section" id="equipos">
+        <div class="admin-section-heading"><div><p class="eyebrow">TEMPORADA Y DIVISIONES</p><h2>Equipos <span>{{ club.teams|length }}</span></h2></div></div>
+        <div class="record-list">
+          {% for team in club.teams %}
+          <form class="admin-card form-grid team-config-form" method="post" action="{{ url_for('admin.edit_team', team_id=team.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>Equipo<input name="name" value="{{ team.name }}" maxlength="100" required></label>
+            <label>División<input name="division" value="{{ team.division }}" maxlength="100" required></label>
+            <label>Temporada<input name="season" value="{{ team.season }}" maxlength="40" required></label>
+            <button class="admin-button button-secondary" type="submit">Guardar equipo</button>
+          </form>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="admin-section" id="jugadores">
+        <div class="admin-section-heading"><div><p class="eyebrow">PLANTILLAS</p><h2>Jugadores <span>{{ club.players|length }}</span></h2></div></div>
+        <form class="admin-card admin-form" method="post" action="{{ url_for('admin.create_player') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <h3>Añadir jugador</h3>
+          <div class="form-grid player-form-grid">
+            <label>Nombre completo<input name="name" maxlength="100" required autocomplete="off"></label>
+            <label>Equipo<select name="team_id" required>{% for team in club.teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}</select></label>
+            <label>Lado<select name="handedness" required><option>Drive</option><option>Revés</option></select></label>
+          </div>
+          <button class="admin-button" type="submit">Guardar jugador</button>
+        </form>
+        <div class="record-list">
+          {% for player in club.players|sort(attribute='name') %}
+          <article class="admin-card record-card">
+            <form class="form-grid player-record-form" method="post" action="{{ url_for('admin.edit_player', player_id=player.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label>Nombre<input name="name" value="{{ player.name }}" maxlength="100" required></label>
+              <label>Equipo<select name="team_id">{% for team in club.teams %}<option value="{{ team.id }}" {% if team.id == player.team_id %}selected{% endif %}>{{ team.name }}</option>{% endfor %}</select></label>
+              <label>Lado<select name="handedness"><option {% if player.handedness == 'Drive' %}selected{% endif %}>Drive</option><option {% if player.handedness == 'Revés' %}selected{% endif %}>Revés</option></select></label>
+              <button class="admin-button button-secondary" type="submit">Guardar</button>
+            </form>
+            <form method="post" action="{{ url_for('admin.remove_player', player_id=player.id) }}" onsubmit="return confirm('¿Eliminar esta ficha de jugador?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-danger" type="submit">Eliminar</button>
+            </form>
+          </article>
+          {% else %}<div class="admin-card empty-admin">Aún no hay jugadores guardados.</div>{% endfor %}
+        </div>
+      </section>
+
+      <section class="admin-section" id="partidos">
+        <div class="admin-section-heading"><div><p class="eyebrow">CALENDARIO Y COMPETICIÓN</p><h2>Partidos y resultados <span>{{ club.matches|length }}</span></h2></div></div>
+        <form class="admin-card admin-form" method="post" action="{{ url_for('admin.create_match') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <h3>Añadir partido</h3>
+          {% set editing = none %}{% include 'partials/match_fields.html' %}
+          <button class="admin-button" type="submit">Guardar partido</button>
+        </form>
+        <div class="record-list">
+          {% for match in club.matches|sort(attribute='date', reverse=true) %}
+          <details class="admin-card match-record"><summary><strong>{{ match.date }} · {{ match.team_id }} vs {{ match.opponent }}</strong><span>{{ match.score or 'Sin resultado' }}</span></summary>
+            <form class="admin-form" method="post" action="{{ url_for('admin.edit_match', match_id=match.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              {% set editing = match %}{% include 'partials/match_fields.html' %}
+              <div class="record-actions"><button class="admin-button button-secondary" type="submit">Guardar cambios</button></div>
+            </form>
+            <form method="post" action="{{ url_for('admin.remove_match', match_id=match.id) }}" onsubmit="return confirm('¿Eliminar este partido?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-danger" type="submit">Eliminar partido</button>
+            </form>
+          </details>
+          {% else %}<div class="admin-card empty-admin">Aún no hay partidos guardados.</div>{% endfor %}
+        </div>
+      </section>
+
+      <section class="admin-section" id="clasificacion">
+        <div class="admin-section-heading"><div><p class="eyebrow">TABLAS DE LIGA</p><h2>Clasificación <span>{{ club.standings|length }}</span></h2></div></div>
+        <form class="admin-card admin-form" method="post" action="{{ url_for('admin.create_standing') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <h3>Añadir equipo a una tabla</h3>
+          {% set editing_standing = none %}{% include 'partials/standing_fields.html' %}
+          <button class="admin-button" type="submit">Guardar posición</button>
+        </form>
+        <div class="record-list">
+          {% for standing in club.standings|sort(attribute='position') %}
+          <details class="admin-card match-record"><summary><strong>{{ standing.division }} · {{ standing.team_name }}</strong><span>Posición {{ standing.position }}</span></summary>
+            <form class="admin-form" method="post" action="{{ url_for('admin.edit_standing', standing_id=standing.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              {% set editing_standing = standing %}{% include 'partials/standing_fields.html' %}
+              <div class="record-actions"><button class="admin-button button-secondary" type="submit">Guardar cambios</button></div>
+            </form>
+            <form method="post" action="{{ url_for('admin.remove_standing', standing_id=standing.id) }}" onsubmit="return confirm('¿Eliminar esta fila de clasificación?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-danger" type="submit">Eliminar fila</button>
+            </form>
+          </details>
+          {% else %}<div class="admin-card empty-admin">Aún no hay clasificaciones guardadas.</div>{% endfor %}
+        </div>
+      </section>
+
+      <section class="admin-section" id="administradores">
+        <div class="admin-section-heading"><div><p class="eyebrow">ACCESOS</p><h2>Administradores <span>{{ admins|length }}</span></h2></div></div>
+        <form class="admin-card admin-form add-admin-form" method="post" action="{{ url_for('admin.create_admin') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <h3>Dar acceso de administración</h3>
+          <div class="form-grid"><label>Correo de Google<input name="email" type="email" maxlength="254" placeholder="persona@gmail.com" required></label><div class="form-submit"><button class="admin-button" type="submit">Añadir administrador</button></div></div>
+        </form>
+        <div class="record-list admin-list">{% for admin in admins %}<article class="admin-card admin-person"><span>{{ admin.email }}</span><form method="post" action="{{ url_for('admin.remove_admin_route', admin_id=admin.id) }}" onsubmit="return confirm('¿Retirar el acceso de administración a esta cuenta?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-danger" type="submit">Retirar acceso</button></form></article>{% endfor %}</div>
+        <p class="admin-help">El primer administrador se configura con el script de inicialización documentado en el README. Después, los administradores podrán dar o retirar acceso desde aquí.</p>
+      </section>
+      <footer class="admin-footer"><span>Montajes Rica · Acceso de administración restringido</span><a href="/">Volver al portal</a></footer>
+    </main>
+    <script defer src="{{ url_for('static', filename='js/admin.js') }}"></script>
+  </body>
+</html>

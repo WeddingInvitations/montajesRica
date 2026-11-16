@@ -1,8 +1,13 @@
 steps:
+  - name: python:3.11-slim
+    id: test-python
+    entrypoint: bash
+    args: ["-c", "pip install --no-cache-dir -r requirements.txt && python -m pytest"]
+
   - name: gcr.io/cloud-builders/gcloud
     id: deploy-app-engine
     args: ["app", "deploy", "app.yaml", "--quiet"]
-    waitFor: ["-"]
+    waitFor: ["test-python"]
 
 timeout: "900s"
 options:

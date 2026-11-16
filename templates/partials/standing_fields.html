@@ -1,0 +1,13 @@
+{% set standing_data = editing_standing if editing_standing is defined and editing_standing else {} %}
+<div class="form-grid standing-form-grid">
+  <label>Equipo del club<select name="team_id" required>{% for team in club.teams %}<option value="{{ team.id }}" {% if standing_data.get('team_id', club.teams[0].id if club.teams else '') == team.id %}selected{% endif %}>{{ team.name }}</option>{% endfor %}</select></label>
+  <label>División<input name="division" value="{{ standing_data.get('division', club.teams[0].division if club.teams else '') }}" maxlength="100" required></label>
+  <label>Temporada<input name="season" value="{{ standing_data.get('season', club.season) }}" maxlength="40" required></label>
+  <label>Nombre en la tabla<input name="team_name" value="{{ standing_data.get('team_name', '') }}" maxlength="120" required></label>
+  <label>Posición<input name="position" type="number" min="1" max="999" value="{{ standing_data.get('position', 1) }}" required></label>
+  <label>Jugados<input name="played" type="number" min="0" max="999" value="{{ standing_data.get('played', 0) }}" required></label>
+  <label>Ganados<input name="wins" type="number" min="0" max="999" value="{{ standing_data.get('wins', 0) }}" required></label>
+  <label>Perdidos<input name="losses" type="number" min="0" max="999" value="{{ standing_data.get('losses', 0) }}" required></label>
+  <label>Puntos<input name="points" type="number" min="0" max="9999" value="{{ standing_data.get('points', 0) }}" required></label>
+  <label class="check-label"><input name="is_club" type="checkbox" {% if standing_data.get('is_club', false) %}checked{% endif %}> Es Montajes Rica</label>
+</div>

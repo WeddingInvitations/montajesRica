@@ -9,7 +9,10 @@ automatic_scaling:
 
 env_variables:
   APP_ENV: production
-  USE_FIRESTORE: "false"
+  GOOGLE_CLOUD_PROJECT: montajesrica
+  REQUIRE_IAP: "true"
+  USE_FIRESTORE: "true"
+  USE_DATASTORE: "false"
 
 handlers:
   - url: /static

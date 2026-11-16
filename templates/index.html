@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/match-details.css') }}">
     <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
   </head>
   <body>
@@ -25,6 +26,7 @@
           <a class="nav-link" href="#equipos" data-view="equipos"><span class="nav-icon">◫</span> Equipos <span class="nav-count">{{ club.teams|length }}</span></a>
           <a class="nav-link" href="#partidos" data-view="partidos"><span class="nav-icon">◷</span> Partidos</a>
           <a class="nav-link" href="#clasificacion" data-view="clasificacion"><span class="nav-icon">▤</span> Clasificación</a>
+          {% if current_user_is_admin %}<a class="nav-link" href="{{ url_for('admin.dashboard') }}"><span class="nav-icon">⚙</span> Administración</a>{% endif %}
         </nav>
         <div class="sidebar-bottom">
           <div class="club-note"><span class="note-icon">i</span><p>Los datos de jugadores y competición se añadirán cuando nos facilitéis la información.</p></div>

@@ -1,65 +1,90 @@
 # Montajes Rica · Portal de pádel
 
-Portal web en español para consultar los tres equipos del club (Masculino 500, Masculino Future y Femenino), sus plantillas, partidos/resultados y clasificaciones por división. La primera entrega es una **base visual y técnica**: los nombres de los equipos ya están configurados, pero divisiones y temporada siguen pendientes; no contiene jugadores, partidos ni clasificaciones reales, autenticación ni herramientas para editar datos desde la web.
+Portal en español para Masculino 500, Masculino Future y Femenino. Incluye consulta de plantillas, partidos/resultados y clasificación, además de un panel protegido para administrar jugadores, partidos, parejas, sets y administradores.
 
-La interfaz usa el logotipo `logoMontajes.jpeg`, una paleta carbón/cobre/crema inspirada en él y permite alternar entre tema claro y oscuro (la preferencia queda guardada en el navegador).
+## Tecnologías y datos
 
-## Tecnologías
+- Python 3.11, Flask, HTML, CSS y JavaScript.
+- Google App Engine Standard, Firestore Native, Cloud Build e Identity-Aware Proxy (IAP).
+- La aplicación requiere una cuenta de Google. Solo las cuentas con rol `admin` pueden modificar datos.
+- Configuración del club en `club/current`; jugadores, partidos, clasificaciones y administradores en `players`, `matches`, `standings` y `admins`.
+- Los datos personales no se incluyen en el código ni en GitHub. `listadoJugadores.xlsx` está excluido por `.gitignore`.
+- SNP Galaxy queda aplazado; no se guarda ninguna contraseña ni se automatiza el inicio de sesión.
 
-- Python 3.11, Flask y Gunicorn.
-- HTML, CSS y JavaScript sin framework de frontend.
-- Google App Engine Standard.
-- Adaptador opcional de lectura de Firestore para el documento `club/current`.
-- Cloud Build para desplegar App Engine.
+> Para permitir acceso de lectura a cualquier cuenta de Google, asigna `roles/iap.httpsResourceAccessor` a `allAuthenticatedUsers`. Si no queréis exponer las fichas a todas esas cuentas, restringid esa política a un Google Group/cuentas concretas antes de habilitar datos reales.
 
-La integración con SNP Galaxy queda expresamente aplazada. No se automatizan accesos ni se almacenan credenciales.
+## Desarrollo local
 
-## Desarrollo local (Windows PowerShell)
+En Windows PowerShell, con Python 3.11:
 
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
+Copy-Item .env.example .env
 python -m flask --app app run --debug
 ```
 
-Abre `http://127.0.0.1:5000`. La página usa los marcadores de `data/club.json`. Para ejecutar las pruebas:
+La vista local usa los marcadores de `data/club.json`. No conecta a Firestore, no autentica usuarios y no guarda cambios. El panel real se habilita en Google Cloud tras configurar IAP y Firestore.
+
+Para validar:
 
 ```powershell
 python -m pytest
 ```
 
-## Estructura de datos
+## Hoja de jugadores
 
-El documento de Firestore `club/current` puede tener estos campos:
+El archivo local ignorado `listadoJugadores.xlsx` contiene:
 
-- `club_name`, `season`
-- `teams`: `id`, `name`, `division`, `season` (opcionalmente `color`)
-- `players`: `id`, `name`, `team_id`, `handedness` (por ejemplo, `Drive` o `Revés`), `position` (opcional)
-- `matches`: `id`, `team_id`, `opponent`, `date` (`YYYY-MM-DD`), `time`, `venue`, `home`, `score`, `status` (`scheduled` o `played`)
-- `standings`: `division`, `season`, `position`, `team_name`, `played`, `wins`, `losses`, `points` y opcionalmente `is_club`
+- `Masc 500` → `equipo-1` (Masculino 500)
+- `Masc Future` → `equipo-2` (Masculino Future)
+- `Fem` → `equipo-3` (Femenino)
+- Columnas `Jugador` y `Posición`; valores admitidos: `Drive` y `Revés`.
 
-Los campos desconocidos se omiten o muestran como pendientes. No se deben cargar datos personales reales hasta haber configurado y probado autenticación/autorización para el portal. App Engine normalmente publica la aplicación; habilitar Firestore con datos de jugadores sin proteger el acceso no es seguro. El acceso del servidor a Firestore usa la cuenta de servicio de App Engine (ADC/IAM); no se incluyen claves JSON.
+Primero valida y cuenta sin mostrar nombres ni escribir datos:
 
-Para activar la lectura de Firestore, crear el documento y revisar primero el control de acceso, luego cambiar `USE_FIRESTORE` a `"true"` en `app.yaml`. En local se puede autenticar con `gcloud auth application-default login` y definir `GOOGLE_CLOUD_PROJECT`. App Engine necesita un rol IAM limitado a los datos que la aplicación lee (normalmente `roles/datastore.viewer`), además de estar en un proyecto con Firestore habilitado. Este portal todavía no escribe datos.
+```powershell
+python -m scripts.import_players --file .\listadoJugadores.xlsx
+```
 
-## Preparación manual en Google Cloud
+La primera carga de este archivo ya se realizó en `montajesrica`. Para repetirla en el futuro, autentícate con `gcloud auth login` y confirma expresamente la escritura:
 
-El propietario del proyecto debe crear los recursos; el código no crea proyectos ni despliega automáticamente:
+```powershell
+gcloud config set project montajesrica
+python -m scripts.import_players --file .\listadoJugadores.xlsx --project montajesrica --gcloud-auth --apply
+```
 
-1. Crear un proyecto de GCP, asociar facturación y elegir las ubicaciones de App Engine y Firestore con cuidado: no suelen poder cambiarse después. Para empezar con coste bajo, App Engine usa instancia F1, cero instancias mínimas y máximo dos; Firestore cobra según uso y tiene cuotas/precios propios. Revisar la calculadora y activar alertas de presupuesto: las alertas no limitan el gasto.
-2. Crear la aplicación de App Engine en la región elegida y habilitar Cloud Build. Habilitar Firestore solo cuando se vaya a usar.
-3. Crear un repositorio privado de GitHub, subir este código y vincularlo a un trigger de Cloud Build (rama principal y configuración `cloudbuild.yaml`).
-4. Asignar a la cuenta ejecutora del trigger permisos mínimos para desplegar App Engine (`roles/appengine.deployer` y `roles/iam.serviceAccountUser` sobre la cuenta runtime apropiada). Evitar roles amplios como Owner/Editor si la organización permite permisos más restringidos.
-5. Configurar el acceso web antes de subir datos reales. No publicar datos de jugadores sin autenticación y autorización adecuadas. No almacenar tokens ni claves en Git; para secretos futuros, usar Secret Manager.
+El importador es idempotente por fila y también evita duplicar el mismo nombre/equipo. `--replace` permite sobrescribir fichas importadas y requiere también `--apply`; úsalo solo tras revisar una copia de seguridad. No subas el Excel a GitHub.
 
-El trigger ejecutará `gcloud app deploy app.yaml --quiet`. La primera ejecución y el enlace del repositorio deben configurarse en la consola de GCP por el propietario del proyecto.
+## Partidos
 
-## Próximas decisiones
+El panel administra equipo, rival, división, fecha, hora, lugar, localía, estado y marcador general (por ejemplo `3-2`). Permite registrar hasta cinco parejas, elegir dos jugadores del equipo por pareja, el rival y los sets (por ejemplo `6-4, 7-5`). Las entradas se validan en el servidor; solo administradores pueden crear, actualizar o borrar.
 
-- Nombres de los tres equipos, divisiones y temporada.
-- Fuente/hoja de cálculo con jugadores, partidos y resultados.
-- Campos adicionales de la ficha (solo los necesarios; evitar información sensible).
-- Quién puede consultar el portal y quién podrá administrar los datos.
-- Diseño y política de acceso para implementar edición segura.
-- Más adelante: comprobar las opciones oficiales de SNP Galaxy con autorización del titular de la cuenta; preferir API o exportación permitida y no guardar contraseñas.
+## Configuración manual en Google Cloud
+
+No se crean recursos ni se despliega desde este asistente:
+
+1. El proyecto `montajesrica` tiene la base `(default)` en **Firestore Native**, región `eur3`; la estructura inicial y las fichas del Excel ya se cargaron en esta base.
+2. Asociar facturación si no está hecha, habilitar App Engine Standard, Cloud Build, Secret Manager e IAP y elegir con cuidado la ubicación de App Engine.
+3. En Secret Manager crear `montajes-rica-flask-secret` con un valor aleatorio largo. Conceder a la cuenta runtime de App Engine `roles/secretmanager.secretAccessor` limitado a ese secreto. La cuenta runtime y quien ejecute importaciones deben tener `roles/datastore.user` (permiso IAM usado por Firestore). No se necesitan claves JSON ni credenciales de Firebase en el navegador.
+4. Habilitar IAP para App Engine y otorgar `roles/iap.httpsResourceAccessor` a `allAuthenticatedUsers` para lectura abierta a cualquier identidad Google, **o** a un Google Group/cuentas concretas. El rol de administrador de la aplicación es independiente de IAM.
+5. El documento `club/current` ya está inicializado. Para crear el primer admin, usa ADC o la sesión activa de gcloud. El script solicita el email en la terminal y no lo guarda en el código:
+
+	```powershell
+	gcloud auth login
+	python -m scripts.bootstrap_admin --project montajesrica --gcloud-auth
+	```
+
+	El admin inicial puede añadir y retirar otros administradores desde el panel.
+6. Revisa la política de acceso y confirma que los jugadores conocen la visibilidad prevista. Ejecuta primero el importador en modo de validación y luego con `--apply`.
+7. Conectar el repositorio a un trigger Cloud Build de la rama principal. Dar a la cuenta de Build permisos mínimos (`roles/appengine.deployer` y `roles/iam.serviceAccountUser` sobre la cuenta runtime apropiada). El trigger ejecuta `gcloud app deploy app.yaml --quiet`.
+
+`app.yaml` exige IAP y usa Firestore Native en producción. La audiencia IAP se deriva del metadata server de App Engine; la clave de Flask se lee de Secret Manager al iniciar. Comprueba en Cloud Console que IAP protege el servicio antes de introducir datos reales.
+
+## Privacidad y operación
+
+- Si IAP concede acceso a `allAuthenticatedUsers`, cualquier persona con cuenta Google puede ver los nombres, equipo y lado de juego. Restringe IAP si eso no es adecuado y confirma el uso previsto con los jugadores.
+- Las reglas Firestore no sustituyen autorización del servidor: no hay SDK cliente de Firestore. Las escrituras pasan por Flask, IAP, CSRF y comprobación del rol admin.
+- No registres credenciales ni datos personales en logs o Git. Revisa cambios antes de hacer commit.
+- Configura alertas de presupuesto: no limitan el gasto. No despliegues hasta haber validado IAP, Secret Manager, Firestore y accesos.
