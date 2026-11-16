@@ -60,12 +60,12 @@ def is_admin(uid: str | None) -> bool:
         return False
     user = getattr(g, "current_user", None)
     if user and user.get("uid") == uid:
-        return user.get("role") == "admin" and user.get("active", True) is True
+        return user.get("role") in {"admin", "owner"} and user.get("active", True) is True
     try:
         from club_store import get_user_profile
 
         profile = get_user_profile(uid)
-        return bool(profile and profile.get("role") == "admin" and profile.get("active", True) is True)
+        return bool(profile and profile.get("role") in {"admin", "owner"} and profile.get("active", True) is True)
     except Exception:
         logging.exception("Could not check the user's Firestore role")
         return False
@@ -82,5 +82,5 @@ def require_user() -> dict[str, Any]:
 
 def require_admin() -> None:
     user = require_user()
-    if user.get("role") != "admin":
+    if user.get("role") not in {"admin", "owner"}:
         abort(403, description="Tu cuenta tiene rol watcher; solo administración puede realizar cambios.")

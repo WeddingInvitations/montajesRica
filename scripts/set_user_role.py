@@ -10,7 +10,7 @@ import re
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", default="montajesrica", help="ID del proyecto Firebase/GCP.")
-    parser.add_argument("--role", choices=("watcher", "admin"), required=True)
+    parser.add_argument("--role", choices=("watcher", "admin", "owner"), required=True)
     parser.add_argument("--gcloud-auth", action="store_true", help="Usa la cuenta activa de gcloud auth login.")
     args = parser.parse_args()
 

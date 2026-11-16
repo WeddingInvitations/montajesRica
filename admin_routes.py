@@ -16,9 +16,11 @@ from club_store import (
     list_admins,
     load_club_data,
     remove_admin,
+    set_player_active,
     update_record,
     update_team,
 )
+from player_stats import calculate_player_stats
 from security import require_admin
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -98,9 +100,20 @@ def _standing_values(club: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _parse_pairings(players: list[dict[str, Any]], team_id: str) -> list[dict[str, Any]]:
-    allowed_player_ids = {player["id"] for player in players if player.get("team_id") == team_id}
+def _parse_pairings(
+    players: list[dict[str, Any]],
+    team_id: str,
+    existing_pairings: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    player_by_id = {player["id"]: player for player in players}
+    active_player_ids = {
+        player["id"]
+        for player in players
+        if player.get("team_id") == team_id
+        and player.get("active", True) is not False
+    }
     validated = []
+    seen_in_match: set[str] = set()
     set_pattern = re.compile(r"^\s*(\d{1,2})\s*-\s*(\d{1,2})\s*$")
     for index in range(1, 6):
         player_ids = [
@@ -115,8 +128,17 @@ def _parse_pairings(players: list[dict[str, Any]], team_id: str) -> list[dict[st
         raw_sets = _optional_text(f"pairing_sets_{index}", 40)
         if not player_ids and not opponent_pair and not raw_sets:
             continue
-        if len(player_ids) != 2 or len(set(player_ids)) != 2 or any(player_id not in allowed_player_ids for player_id in player_ids):
+        old_pairing = (existing_pairings or [])[index - 1] if len(existing_pairings or []) >= index else {}
+        old_player_ids = set(old_pairing.get("player_ids", []))
+        valid_player_ids = active_player_ids | {
+            player_id for player_id in old_player_ids
+            if player_id in player_by_id and player_by_id[player_id].get("team_id") == team_id
+        }
+        if len(player_ids) != 2 or len(set(player_ids)) != 2 or any(player_id not in valid_player_ids for player_id in player_ids):
             abort(400, description=f"La pareja {index} debe tener dos jugadores del equipo seleccionado.")
+        if any(player_id in seen_in_match for player_id in player_ids):
+            abort(400, description="Un jugador no puede aparecer en más de una pareja del mismo partido.")
+        seen_in_match.update(player_ids)
         clean_sets = []
         if raw_sets:
             for raw_score in raw_sets.split(","):
@@ -135,7 +157,17 @@ def _parse_pairings(players: list[dict[str, Any]], team_id: str) -> list[dict[st
                 abort(400, description=f"El marcador de la pareja {index} contiene un set inválido.")
         if clean_sets and not opponent_pair:
             abort(400, description=f"Indica el nombre de la pareja rival {index}.")
-        player_names = [next(player["name"] for player in players if player["id"] == player_id) for player_id in player_ids]
+        old_pair = next(
+            (item for item in (existing_pairings or []) if item.get("player_ids") == player_ids),
+            {},
+        )
+        old_names = old_pair.get("player_names", [])
+        player_names = []
+        for player_index, player_id in enumerate(player_ids):
+            if player_index < len(old_names) and old_names[player_index]:
+                player_names.append(old_names[player_index])
+            else:
+                player_names.append(player_by_id[player_id]["name"])
         validated.append({
             "player_ids": player_ids,
             "player_names": player_names,
@@ -145,7 +177,7 @@ def _parse_pairings(players: list[dict[str, Any]], team_id: str) -> list[dict[st
     return validated
 
 
-def _match_values(club: dict[str, Any]) -> dict[str, Any]:
+def _match_values(club: dict[str, Any], existing_match: dict[str, Any] | None = None) -> dict[str, Any]:
     team_id = _required_text("team_id", "equipo", 80)
     team_ids = {team.get("id") for team in club.get("teams", [])}
     if team_id not in team_ids:
@@ -170,7 +202,11 @@ def _match_values(club: dict[str, Any]) -> dict[str, Any]:
     if status not in {"scheduled", "played"}:
         abort(400, description="El estado del partido no es válido.")
     score = _optional_text("score", 30)
-    pairings = _parse_pairings(club.get("players", []), team_id)
+    pairings = _parse_pairings(
+        club.get("players", []),
+        team_id,
+        existing_pairings=(existing_match or {}).get("pairings", []),
+    )
     if score and not re.fullmatch(r"\d{1,2}\s*-\s*\d{1,2}", score):
         abort(400, description="El resultado general debe escribirse como 3-2.")
     completed_pairings = [pairing for pairing in pairings if pairing["sets"]]
@@ -200,13 +236,19 @@ def protect_admin_area():
 @admin_bp.get("")
 def dashboard():
     club = _club_or_fail()
-    return render_template("admin.html", club=club, admins=list_admins())
+    return render_template(
+        "admin.html",
+        club=club,
+        admins=list_admins(),
+        player_stats=calculate_player_stats(club.get("matches", [])),
+    )
 
 
 @admin_bp.post("/players")
 def create_player():
     club = _club_or_fail()
     values = _player_values(club)
+    values["active"] = True
     create_record("players", values)
     flash("Jugador añadido.", "success")
     return redirect(url_for("admin.dashboard", _anchor="jugadores"))
@@ -223,8 +265,15 @@ def edit_player(player_id: str):
 
 @admin_bp.post("/players/<player_id>/delete")
 def remove_player(player_id: str):
-    delete_record("players", player_id)
-    flash("Jugador eliminado.", "success")
+    set_player_active(player_id, False, g.current_user["uid"])
+    flash("Jugador archivado. Su historial y estadísticas se conservan.", "success")
+    return redirect(url_for("admin.dashboard", _anchor="jugadores"))
+
+
+@admin_bp.post("/players/<player_id>/restore")
+def restore_player(player_id: str):
+    set_player_active(player_id, True, g.current_user["uid"])
+    flash("Jugador restaurado a la plantilla.", "success")
     return redirect(url_for("admin.dashboard", _anchor="jugadores"))
 
 
@@ -250,7 +299,12 @@ def create_match():
 @admin_bp.post("/matches/<match_id>")
 def edit_match(match_id: str):
     club = _club_or_fail()
-    values = _match_values(club)
+    from club_store import get_record
+
+    existing_match = get_record("matches", match_id)
+    if not existing_match:
+        abort(404, description="No se encontró el partido.")
+    values = _match_values(club, existing_match=existing_match)
     update_record("matches", match_id, values)
     flash("Partido y resultado actualizados.", "success")
     return redirect(url_for("admin.dashboard", _anchor="partidos"))
@@ -298,6 +352,6 @@ def create_admin():
 
 @admin_bp.post("/admins/<admin_id>/delete")
 def remove_admin_route(admin_id: str):
-    remove_admin(admin_id, g.current_user["uid"])
+    remove_admin(admin_id, g.current_user["uid"], g.current_user["role"])
     flash("Permisos de administración retirados.", "success")
     return redirect(url_for("admin.dashboard", _anchor="administradores"))

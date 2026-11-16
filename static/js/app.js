@@ -19,6 +19,7 @@
   setTheme(storedTheme === 'dark' || storedTheme === 'light' ? storedTheme : preferredTheme);
   const teams = Array.isArray(club.teams) ? club.teams : [];
   const players = Array.isArray(club.players) ? club.players : [];
+  const playerStats = club.player_stats && typeof club.player_stats === 'object' ? club.player_stats : {};
   const matches = Array.isArray(club.matches) ? club.matches : [];
   const standings = Array.isArray(club.standings) ? club.standings : [];
   const teamColors = ['green', 'blue', 'orange'];
@@ -56,7 +57,7 @@
     const score = match.score ? `<span class="match-score">${safe(match.score)}</span>` : '<span class="match-vs">VS</span>';
     const pairings = Array.isArray(match.pairings) ? match.pairings : [];
     const pairDetails = pairings.length ? `<details class="match-pairings"><summary>Ver parejas y sets</summary><div>${pairings.map((pairing, index) => {
-      const names = (pairing.player_ids || []).map((id, playerIndex) => safe(players.find((player) => player.id === id)?.name || pairing.player_names?.[playerIndex], 'Jugador no disponible')).join(' y ');
+      const names = (pairing.player_ids || []).map((id, playerIndex) => safe(pairing.player_names?.[playerIndex] || players.find((player) => player.id === id)?.name, 'Jugador archivado')).join(' y ');
       const sets = (pairing.sets || []).map((set) => `${safe(set.home)}-${safe(set.away)}`).join(', ');
       return `<p><strong>Pareja ${index + 1}:</strong> ${names}${pairing.opponent_pair ? ` <span>vs</span> ${safe(pairing.opponent_pair)}` : ''}${sets ? `<small>${sets}</small>` : ''}</p>`;
     }).join('')}</div></details>` : '';
@@ -95,7 +96,10 @@
     const roster = players.filter((player) => player.team_id === teamId);
     const team = teamById(teamId);
     document.getElementById('roster-title').textContent = `Jugadores · ${team?.name || 'Equipo'}`;
-    const content = roster.length ? `<div class="player-grid">${roster.map((player, index) => `<article class="player-card"><div class="player-avatar player-avatar-${index % 4}">${escapeHtml(String(player.name || '?').split(/\s+/).slice(0, 2).map((part) => part[0] || '').join('').toUpperCase())}</div><div class="player-details"><strong>${safe(player.name)}</strong><span>${teamName(player.team_id)}</span><div class="player-tags"><span>${safe(player.handedness, 'Mano por confirmar')}</span>${player.position ? `<span>${safe(player.position)}</span>` : ''}</div></div></article>`).join('')}</div>` : emptyState('♙', 'Plantilla por completar', 'Cuando tengamos los nombres y perfiles, podrás ver aquí quién juega en este equipo y su lado de pista.');
+    const content = roster.length ? `<div class="player-grid">${roster.map((player, index) => {
+      const stats = playerStats[player.id] || { played: 0, wins: 0, losses: 0, sets_won: 0, sets_lost: 0 };
+      return `<article class="player-card"><div class="player-avatar player-avatar-${index % 4}">${escapeHtml(String(player.name || '?').split(/\s+/).slice(0, 2).map((part) => part[0] || '').join('').toUpperCase())}</div><div class="player-details"><strong>${safe(player.name)}</strong><span>${teamName(player.team_id)}</span><div class="player-tags"><span>${safe(player.handedness, 'Mano por confirmar')}</span>${player.position ? `<span>${safe(player.position)}</span>` : ''}</div><div class="player-stats" aria-label="Estadísticas del jugador"><span><b>${stats.played}</b> PJ</span><span><b>${stats.wins}</b> PG</span><span><b>${stats.losses}</b> PP</span><span><b>${stats.sets_won}</b> SG</span><span><b>${stats.sets_lost}</b> SP</span></div></div></article>`;
+    }).join('')}</div>` : emptyState('♙', 'Plantilla por completar', 'Cuando tengamos los nombres y perfiles, podrás ver aquí quién juega en este equipo y su lado de pista.');
     document.getElementById('roster-content').innerHTML = content;
   }
 

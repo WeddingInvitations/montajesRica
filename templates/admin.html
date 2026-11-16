@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-pairings.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/player-stats.css') }}">
   </head>
   <body>
     <main class="admin-wrap">
@@ -19,7 +20,7 @@
           <img class="brand-logo" src="/logoMontajes.jpeg" alt="Logo Montajes Rica">
           <span><strong>Montajes Rica</strong><small>ADMINISTRACIÓN DEL CLUB</small></span>
         </a>
-        <div class="admin-user"><span>{{ current_user.email }} · ADMIN</span><a href="/">Volver al portal ↗</a><button class="button-danger" id="logout-button" type="button">Cerrar sesión</button></div>
+        <div class="admin-user"><span>{{ current_user.email }} · {{ current_user.role|upper }}</span><a href="/">Volver al portal ↗</a><button class="button-danger" id="logout-button" type="button">Cerrar sesión</button></div>
       </header>
       <div class="admin-intro"><p class="eyebrow">GESTIÓN INTERNA</p><h1>Panel de administración</h1><p>Los cambios se guardan en Firestore y quedan disponibles para los usuarios con sesión de Google.</p></div>
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -43,7 +44,9 @@
       </section>
 
       <section class="admin-section" id="jugadores">
-        <div class="admin-section-heading"><div><p class="eyebrow">PLANTILLAS</p><h2>Jugadores <span>{{ club.players|length }}</span></h2></div></div>
+        {% set active_players = club.players|rejectattr('active', 'equalto', false)|list %}
+        {% set archived_players = club.players|selectattr('active', 'equalto', false)|list %}
+        <div class="admin-section-heading"><div><p class="eyebrow">PLANTILLAS</p><h2>Jugadores <span>{{ active_players|length }}</span></h2></div></div>
         <form class="admin-card admin-form" method="post" action="{{ url_for('admin.create_player') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <h3>Añadir jugador</h3>
@@ -55,7 +58,7 @@
           <button class="admin-button" type="submit">Guardar jugador</button>
         </form>
         <div class="record-list">
-          {% for player in club.players|sort(attribute='name') %}
+          {% for player in active_players|sort(attribute='name') %}
           <article class="admin-card record-card">
             <form class="form-grid player-record-form" method="post" action="{{ url_for('admin.edit_player', player_id=player.id) }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -65,11 +68,34 @@
               <button class="admin-button button-secondary" type="submit">Guardar</button>
             </form>
             <form method="post" action="{{ url_for('admin.remove_player', player_id=player.id) }}" onsubmit="return confirm('¿Eliminar esta ficha de jugador?')">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-danger" type="submit">Eliminar</button>
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-danger" type="submit">Archivar</button>
             </form>
+            {% set stats = player_stats.get(player.id, {}) %}
+            <div class="admin-player-stats"><span>{{ stats.get('played', 0) }} PJ</span><span>{{ stats.get('wins', 0) }} PG</span><span>{{ stats.get('losses', 0) }} PP</span><span>{{ stats.get('sets_won', 0) }} SG</span><span>{{ stats.get('sets_lost', 0) }} SP</span></div>
           </article>
-          {% else %}<div class="admin-card empty-admin">Aún no hay jugadores guardados.</div>{% endfor %}
+          {% else %}<div class="admin-card empty-admin">Aún no hay jugadores activos en esta plantilla.</div>{% endfor %}
         </div>
+        <details class="archived-players">
+          <summary>Jugadores archivados <span>{{ archived_players|length }}</span></summary>
+          <div class="record-list">
+            {% for player in archived_players|sort(attribute='name') %}
+            <article class="admin-card record-card archived-player-card">
+              <form class="form-grid player-record-form" method="post" action="{{ url_for('admin.edit_player', player_id=player.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label>Nombre<input name="name" value="{{ player.name }}" maxlength="100" required></label>
+                <label>Equipo<select name="team_id">{% for team in club.teams %}<option value="{{ team.id }}" {% if team.id == player.team_id %}selected{% endif %}>{{ team.name }}</option>{% endfor %}</select></label>
+                <label>Lado<select name="handedness"><option {% if player.handedness == 'Drive' %}selected{% endif %}>Drive</option><option {% if player.handedness == 'Revés' %}selected{% endif %}>Revés</option></select></label>
+                <button class="admin-button button-secondary" type="submit">Guardar ficha</button>
+              </form>
+              <form method="post" action="{{ url_for('admin.restore_player', player_id=player.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="admin-button" type="submit">Restaurar</button>
+              </form>
+              {% set stats = player_stats.get(player.id, {}) %}
+              <div class="admin-player-stats"><span>{{ stats.get('played', 0) }} PJ</span><span>{{ stats.get('wins', 0) }} PG</span><span>{{ stats.get('losses', 0) }} PP</span><span>{{ stats.get('sets_won', 0) }} SG</span><span>{{ stats.get('sets_lost', 0) }} SP</span></div>
+            </article>
+            {% else %}<div class="admin-card empty-admin">No hay jugadores archivados.</div>{% endfor %}
+          </div>
+        </details>
       </section>
 
       <section class="admin-section" id="partidos">
@@ -127,7 +153,7 @@
           <h3>Dar acceso de administración</h3>
           <div class="form-grid"><label>Correo de Google<input name="email" type="email" maxlength="254" placeholder="persona@gmail.com" required></label><div class="form-submit"><button class="admin-button" type="submit">Añadir administrador</button></div></div>
         </form>
-        <div class="record-list admin-list">{% for admin in admins %}<article class="admin-card admin-person"><span>{{ admin.email }}</span><form method="post" action="{{ url_for('admin.remove_admin_route', admin_id=admin.id) }}" onsubmit="return confirm('¿Retirar el acceso de administración a esta cuenta?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-danger" type="submit">Retirar acceso</button></form></article>{% endfor %}</div>
+        <div class="record-list admin-list">{% for admin in admins %}<article class="admin-card admin-person"><span>{{ admin.email }} · {{ admin.role|upper }}</span><form method="post" action="{{ url_for('admin.remove_admin_route', admin_id=admin.id) }}" onsubmit="return confirm('¿Retirar el acceso de administración a esta cuenta?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-danger" type="submit">Retirar acceso</button></form></article>{% endfor %}</div>
         <p class="admin-help">El primer administrador se configura con el script de inicialización documentado en el README. Después, los administradores podrán dar o retirar acceso desde aquí.</p>
       </section>
       <footer class="admin-footer"><span>Montajes Rica · Acceso de administración restringido</span><a href="/">Volver al portal</a></footer>

@@ -49,6 +49,24 @@ def test_admin_document_id_is_normalized_and_opaque():
     assert "@" not in admin_document_id("club@example.com")
 
 
+def test_owner_role_is_preserved_instead_of_reset_to_watcher():
+    from club_store import normalized_role
+
+    assert normalized_role("owner") == "owner"
+    assert normalized_role("admin") == "admin"
+    assert normalized_role("watcher") == "watcher"
+    assert normalized_role("unknown-role") == "watcher"
+
+
+def test_owner_can_use_admin_routes():
+    from flask import g
+    from security import require_admin
+
+    with app.test_request_context("/"):
+        g.current_user = {"uid": "owner-uid", "role": "owner", "active": True}
+        require_admin()
+
+
 def test_admin_dashboard_renders_for_an_authorized_firebase_admin(monkeypatch):
     import admin_routes
     from flask import g
@@ -102,6 +120,53 @@ def test_match_pairing_accepts_two_team_players_and_set_scores():
     }]
 
 
+def test_archived_player_can_be_kept_only_in_its_existing_match():
+    from admin_routes import _parse_pairings
+
+    players = [
+        {"id": "archived-1", "name": "Jugador histórico", "team_id": "equipo-1", "active": False},
+        {"id": "active-2", "name": "Jugador activo", "team_id": "equipo-1", "active": True},
+    ]
+    form_data = {
+        "pairing_player_1_1": "archived-1",
+        "pairing_player_1_2": "active-2",
+    }
+    with app.test_request_context("/", method="POST", data=form_data):
+        kept = _parse_pairings(players, "equipo-1", existing_pairings=[{
+            "player_ids": ["archived-1", "active-2"],
+            "player_names": ["Nombre histórico", "Jugador activo"],
+        }])
+    assert kept[0]["player_names"] == ["Nombre histórico", "Jugador activo"]
+
+    with app.test_request_context("/", method="POST", data=form_data):
+        from werkzeug.exceptions import BadRequest
+
+        try:
+            _parse_pairings(players, "equipo-1")
+        except BadRequest:
+            pass
+        else:
+            raise AssertionError("An archived player must not be added to a new match")
+
+
+def test_remove_player_archives_without_deleting(monkeypatch):
+    import admin_routes
+    from flask import g
+
+    monkeypatch.setattr("app.authenticate_request", lambda: setattr(g, "current_user", {
+        "uid": "firebase-admin-uid", "email": "admin@example.com", "display_name": "Admin", "role": "owner", "active": True
+    }))
+    monkeypatch.setattr(admin_routes, "storage_enabled", lambda: True)
+    archived = []
+    monkeypatch.setattr(admin_routes, "set_player_active", lambda player_id, active, actor_uid: archived.append((player_id, active, actor_uid)))
+    monkeypatch.setitem(app.config, "WTF_CSRF_ENABLED", False)
+
+    response = app.test_client().post("/admin/players/player-1/delete")
+
+    assert response.status_code == 302
+    assert archived == [("player-1", False, "firebase-admin-uid")]
+
+
 def test_admin_can_create_player_only_after_firebase_role_check(monkeypatch):
     import admin_routes
     from flask import g
@@ -125,7 +190,7 @@ def test_admin_can_create_player_only_after_firebase_role_check(monkeypatch):
     )
 
     assert response.status_code == 302
-    assert created == [("players", {"name": "Jugador de prueba", "team_id": "equipo-prueba", "handedness": "Drive"})]
+    assert created == [("players", {"name": "Jugador de prueba", "team_id": "equipo-prueba", "handedness": "Drive", "active": True})]
 
 
 def test_anonymous_home_does_not_load_or_expose_private_club_data(monkeypatch):
@@ -138,6 +203,38 @@ def test_anonymous_home_does_not_load_or_expose_private_club_data(monkeypatch):
     assert "Crear una cuenta" in page
     assert 'id="google-password-setup"' in page
     assert 'id="club-data" type="application/json">null' in page
+
+
+def test_archived_player_is_hidden_from_roster_but_kept_in_match_history(monkeypatch):
+    import json
+    import re
+    from flask import g
+
+    club = {
+        "club_name": "Montajes Rica", "season": "Temporada de prueba",
+        "teams": [{"id": "equipo-1", "name": "Masculino 500", "division": "División", "season": "Prueba"}],
+        "players": [
+            {"id": "active-player", "name": "Jugador activo", "team_id": "equipo-1", "handedness": "Drive", "active": True},
+            {"id": "archived-player", "name": "Jugador archivado", "team_id": "equipo-1", "handedness": "Revés", "active": False},
+        ],
+        "matches": [{"id": "match-1", "team_id": "equipo-1", "status": "played", "score": "1-0", "pairings": [{
+            "player_ids": ["archived-player"], "player_names": ["Jugador archivado"], "sets": [{"home": 6, "away": 4}],
+        }]}],
+        "standings": [],
+    }
+    monkeypatch.setattr("app.authenticate_request", lambda: setattr(g, "current_user", {
+        "uid": "watcher", "email": "watcher@example.com", "display_name": "Watcher", "role": "watcher", "active": True
+    }))
+    monkeypatch.setattr("app.load_club_data", lambda: club)
+
+    response = app.test_client().get("/")
+    page = response.get_data(as_text=True)
+    serialized = re.search(r'<script id="club-data" type="application/json">(.*?)</script>', page).group(1)
+    rendered_club = json.loads(serialized)
+
+    assert [player["id"] for player in rendered_club["players"]] == ["active-player"]
+    assert rendered_club["player_stats"]["archived-player"]["played"] == 1
+    assert rendered_club["matches"][0]["pairings"][0]["player_names"] == ["Jugador archivado"]
 
 
 def test_firebase_identity_profile_defaults_to_watcher(monkeypatch):

@@ -14,6 +14,7 @@ from werkzeug.exceptions import HTTPException
 from admin_routes import admin_bp
 from club_store import ensure_user_profile, load_club_data
 from firebase_auth import SESSION_DURATION, create_session_cookie, verify_firebase_id_token
+from player_stats import calculate_player_stats
 from security import SESSION_COOKIE_NAME, authenticate_request
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -61,7 +62,7 @@ def inject_identity():
     user = getattr(g, "current_user", None)
     return {
         "current_user": user,
-        "current_user_is_admin": bool(user and user.get("role") == "admin"),
+        "current_user_is_admin": bool(user and user.get("role") in {"admin", "owner"}),
     }
 
 
@@ -69,6 +70,9 @@ def inject_identity():
 def home():
     user = getattr(g, "current_user", None)
     club = load_club_data() if user else None
+    if club:
+        club["player_stats"] = calculate_player_stats(club.get("matches", []))
+        club["players"] = [player for player in club.get("players", []) if player.get("active", True) is not False]
     response = make_response(render_template("index.html", club=club))
     response.headers["Cache-Control"] = "private, no-store, max-age=0"
     return response

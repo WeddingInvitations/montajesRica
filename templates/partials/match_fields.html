@@ -1,5 +1,5 @@
 {% set match_data = editing if editing is defined and editing else {} %}
-<div class="form-grid match-form-grid" data-match-form>
+<div class="form-grid match-form-grid" data-match-form data-match-editing="{{ 'true' if match_data else 'false' }}">
   <label>Equipo<select name="team_id" data-team-select required>{% for team in club.teams %}<option value="{{ team.id }}" {% if match_data.get('team_id', club.teams[0].id if club.teams else '') == team.id %}selected{% endif %}>{{ team.name }}</option>{% endfor %}</select></label>
   <label>Rival<input name="opponent" value="{{ match_data.get('opponent', '') }}" maxlength="120" required></label>
   <label>División<input name="division" value="{{ match_data.get('division', '') }}" maxlength="100" placeholder="División" required></label>
@@ -7,7 +7,7 @@
   <label>Hora<input name="time" type="time" value="{{ match_data.get('time', '') }}"></label>
   <label>Lugar / pista<input name="venue" value="{{ match_data.get('venue', '') }}" maxlength="160" required></label>
   <label>Estado<select name="status"><option value="scheduled" {% if match_data.get('status', 'scheduled') == 'scheduled' %}selected{% endif %}>Pendiente</option><option value="played" {% if match_data.get('status') == 'played' %}selected{% endif %}>Jugado</option></select></label>
-  <label>Resultado del enfrentamiento<input name="score" value="{{ match_data.get('score', '') }}" maxlength="30" placeholder="Ej.: 3-2"></label>
+  <label>Resultado del enfrentamiento (MR-rival)<input name="score" value="{{ match_data.get('score', '') }}" maxlength="30" placeholder="Ej.: 3-2"></label>
   <label class="check-label"><input name="home" type="checkbox" {% if match_data.get('home', true) %}checked{% endif %}> Montajes Rica juega como local</label>
 </div>
 <div class="pairing-editor">
@@ -16,9 +16,9 @@
     {% set pair = match_data.get('pairings', [])[index - 1] if match_data.get('pairings', [])|length >= index else {} %}
     <div class="pairing-row">
       <span class="pairing-number">{{ index }}</span>
-      <label>Pareja MR<div class="pair-selects">{% for player_number in range(2) %}<select name="pairing_player_{{ index }}_{{ player_number + 1 }}" data-player-select aria-label="Jugador {{ player_number + 1 }} de pareja {{ index }}"><option value="">Selecciona jugador</option>{% for player in club.players|sort(attribute='name') %}<option value="{{ player.id }}" data-team="{{ player.team_id }}" {% if pair.get('player_ids', [])|length > player_number and pair.get('player_ids', [])[player_number] == player.id %}selected{% endif %}>{{ player.name }} · {{ player.team_id }}</option>{% endfor %}</select>{% endfor %}</div></label>
+      <label>Pareja MR<div class="pair-selects">{% for player_number in range(2) %}<select name="pairing_player_{{ index }}_{{ player_number + 1 }}" data-player-select aria-label="Jugador {{ player_number + 1 }} de pareja {{ index }}"><option value="">Selecciona jugador</option>{% for player in club.players|sort(attribute='name') %}{% set selected_player = pair.get('player_ids', [])|length > player_number and pair.get('player_ids', [])[player_number] == player.id %}<option value="{{ player.id }}" data-team="{{ player.team_id }}" data-active="{{ 'true' if player.get('active', true) else 'false' }}" {% if selected_player %}selected{% endif %} {% if not player.get('active', true) and not selected_player %}disabled{% endif %}>{{ player.name }}{% if not player.get('active', true) %} · Archivado{% else %} · {{ player.team_id }}{% endif %}</option>{% endfor %}</select>{% endfor %}</div></label>
       <label>Rival<input name="pairing_opponent_{{ index }}" value="{{ pair.get('opponent_pair', '') }}" maxlength="100"></label>
-      <label>Sets<input name="pairing_sets_{{ index }}" value="{% for score in pair.get('sets', []) %}{{ score.home }}-{{ score.away }}{% if not loop.last %}, {% endif %}{% endfor %}" placeholder="6-4, 7-5" maxlength="40"></label>
+      <label>Sets (MR-rival)<input name="pairing_sets_{{ index }}" value="{% for score in pair.get('sets', []) %}{{ score.home }}-{{ score.away }}{% if not loop.last %}, {% endif %}{% endfor %}" placeholder="6-4, 7-5" maxlength="40"></label>
     </div>
   {% endfor %}
 </div>

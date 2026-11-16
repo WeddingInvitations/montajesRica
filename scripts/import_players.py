@@ -85,8 +85,8 @@ def import_records(
 
         client = datastore.Client(project=project, credentials=credentials)
         keys = [client.key("Player", stable_player_id(record)) for record in records]
-        existing_ids = {
-            str(entity.key.name if entity.key.name is not None else entity.key.id)
+        existing_entities = {
+            str(entity.key.name if entity.key.name is not None else entity.key.id): entity
             for entity in client.get_multi(keys)
             if entity is not None
         }
@@ -94,10 +94,10 @@ def import_records(
         skipped = 0
         for record, key in zip(records, keys):
             record_id = str(key.name if key.name is not None else key.id)
-            if record_id in existing_ids and not replace:
+            if record_id in existing_entities and not replace:
                 skipped += 1
                 continue
-            entity = datastore.Entity(key=key)
+            entity = existing_entities.get(record_id) or datastore.Entity(key=key)
             entity.update({key: value for key, value in record.items() if not key.startswith("_")})
             to_write.append(entity)
         for start in range(0, len(to_write), 450):
@@ -127,7 +127,9 @@ def import_records(
         pending_people.add(person_key)
         reference = collection.document(player_id)
         data: dict[str, Any] = {key: value for key, value in record.items() if not key.startswith("_")}
-        batch.set(reference, data)
+        if player_id not in existing_ids:
+            data["active"] = True
+        batch.set(reference, data, merge=True)
         written += 1
         if written % 450 == 0:
             batch.commit()

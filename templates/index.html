@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/match-details.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/player-stats.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-forms.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-flow.css') }}">
@@ -50,7 +51,7 @@
           <button class="auth-link google-password-cancel" id="cancel-google-password" type="button">Ahora no</button>
         </section>
         <p class="auth-error hidden" id="auth-error" role="alert"></p>
-        <p class="auth-privacy">Las cuentas nuevas tendrán acceso de solo lectura. La administración requiere rol admin.</p>
+        <p class="auth-privacy">Las cuentas nuevas tendrán acceso de solo lectura. La administración requiere rol admin u owner.</p>
       </section>
     </main>
     {% if current_user %}
@@ -71,7 +72,7 @@
         </nav>
         <div class="sidebar-bottom">
           <div class="club-note"><span class="note-icon">i</span><p>Plantillas cargadas. Divisiones, temporada y competición se completan desde administración.</p></div>
-          <div class="user-chip"><span class="avatar">{{ current_user.display_name[:2]|upper }}</span><span><strong>{{ current_user.display_name }}</strong><small>{{ 'ADMIN' if current_user.role == 'admin' else 'WATCHER' }} · {{ current_user.email }}</small></span><button class="more" id="logout-button" type="button" title="Cerrar sesión" aria-label="Cerrar sesión">↪</button></div>
+          <div class="user-chip"><span class="avatar">{{ current_user.display_name[:2]|upper }}</span><span><strong>{{ current_user.display_name }}</strong><small>{{ current_user.role|upper }} · {{ current_user.email }}</small></span><button class="more" id="logout-button" type="button" title="Cerrar sesión" aria-label="Cerrar sesión">↪</button></div>
         </div>
       </aside>
 
@@ -101,7 +102,7 @@
           <section class="view-section hidden" id="view-equipos">
             <div class="page-title"><p class="eyebrow">LA FAMILIA MR</p><h1>Nuestros equipos</h1><p class="intro">Tres equipos, una misma forma de competir.</p></div>
             <div class="team-grid team-grid-large" id="all-teams"></div>
-            <div class="panel roster-panel"><div class="panel-heading"><div><p class="eyebrow">PLANTILLA</p><h2 id="roster-title">Jugadores</h2></div><label class="select-wrap"><span class="sr-only">Seleccionar equipo</span><select id="team-select"></select><span aria-hidden="true">⌄</span></label></div><div id="roster-content"></div></div>
+            <div class="panel roster-panel"><div class="panel-heading"><div><p class="eyebrow">PLANTILLA</p><h2 id="roster-title">Jugadores</h2><p class="player-stats-legend">PJ partidos · PG ganados · PP perdidos · SG sets ganados · SP sets perdidos</p></div><label class="select-wrap"><span class="sr-only">Seleccionar equipo</span><select id="team-select"></select><span aria-hidden="true">⌄</span></label></div><div id="roster-content"></div></div>
           </section>
 
           <section class="view-section hidden" id="view-partidos">

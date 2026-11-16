@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any
 
@@ -65,6 +66,11 @@ def list_records(collection: str) -> list[dict[str, Any]]:
     return [_decode_entity(entity) for entity in query.fetch()]
 
 
+def get_record(collection: str, record_id: str) -> dict[str, Any] | None:
+    entity = datastore_client().get(datastore_client().key(KIND_BY_COLLECTION[collection], record_id))
+    return _decode_entity(entity) if entity is not None else None
+
+
 def create_record(collection: str, record_id: str, values: dict[str, Any]) -> None:
     client = datastore_client()
     entity = datastore.Entity(key=client.key(KIND_BY_COLLECTION[collection], record_id))
@@ -79,6 +85,23 @@ def update_record(collection: str, record_id: str, values: dict[str, Any]) -> No
     if entity is None:
         abort(404, description="No se encontró el registro solicitado.")
     entity.update(_encode_values(values))
+    client.put(entity)
+
+
+def set_player_active(player_id: str, active: bool, actor_uid: str) -> None:
+    client = datastore_client()
+    key = client.key(KIND_BY_COLLECTION["players"], player_id)
+    entity = client.get(key)
+    if entity is None:
+        abort(404, description="No se encontró el jugador.")
+    entity["active"] = active
+    entity["updated_at"] = datetime.now(timezone.utc)
+    if active:
+        entity.pop("deleted_at", None)
+        entity.pop("deleted_by", None)
+    else:
+        entity["deleted_at"] = datetime.now(timezone.utc)
+        entity["deleted_by"] = actor_uid
     client.put(entity)
 
 
