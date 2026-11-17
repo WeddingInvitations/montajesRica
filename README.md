@@ -11,6 +11,20 @@ Portal en español para los equipos Masculino 500, Masculino Future y Femenino. 
 - Si un partido antiguo ya incluye a un jugador archivado, su referencia se conserva al editar el encuentro. Cada pareja guarda una copia del nombre en `player_names` para mostrar el resultado histórico aunque cambie la ficha actual.
 - Las estadísticas son calculadas, no contadores que se incrementan al guardar: **PJ** partidos jugados, **PG/PP** resultados de la pareja del jugador y **SG/SP** sets ganados/perdidos. Se calculan desde partidos con estado `played`; si una pareja no tiene sets detallados, se usa el marcador general del equipo. El marcador general se introduce desde la perspectiva de Montajes Rica (MR primero y rival después), sea local o visitante.
 - El cálculo es por pareja: los jugadores de una pareja reciben ese resultado. No hay doble conteo si un jugador aparece repetido en datos antiguos.
+## Ranking individual
+
+La pestaña Ranking muestra la clasificación general y permite filtrar por equipo
+de plantilla actual. Solo incluye jugadores activos. Presenta partidos jugados,
+ganados, perdidos, porcentaje de victorias y sets ganados/perdidos.
+
+La ordenación usa el límite inferior de Wilson al 95 % sobre ganados/jugados,
+expresado como índice de 0 a 100: tiene en cuenta el tamaño de la muestra para no
+premiar automáticamente un 1/1 por encima de un 8/10. No mide la fuerza de los
+oponentes ni la dificultad de las divisiones. Desempata por porcentaje de victorias,
+victorias, diferencia de sets, sets ganados y nombre. Sin partidos no se asigna
+posición. Las estadísticas provienen de los resultados existentes de las parejas;
+no se generan resultados ni se modifican los datos en Firestore.
+
 ## Firebase Authentication
 
 La configuración pública del cliente está en `static/js/firebase-config.js`; incluye el `apiKey` de la app Web, que identifica la aplicación y **no es una clave de servicio**. Nunca pongas credenciales de cuentas de servicio, claves privadas ni secretos OAuth en ese archivo.

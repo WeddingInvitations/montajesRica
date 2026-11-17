@@ -1,4 +1,5 @@
 import { renderMatchScoreboards } from './match-scoreboard.mjs';
+import { renderPlayerRanking } from './player-ranking.mjs';
 
 (() => {
   const dataNode = document.getElementById('club-data');
@@ -47,7 +48,7 @@ import { renderMatchScoreboards } from './match-scoreboard.mjs';
     return `<article class="team-card team-${color} ${large ? 'team-card-large' : ''}">
       <div class="team-card-top"><span class="team-number">0${index + 1}</span><span class="team-season">${safe(team.season, club.season)}</span></div>
       <div class="team-emblem"><span>${safe(team.short_name, String(team.name || `Equipo ${index + 1}`).replace(/equipo/i, 'E').slice(0, 3).toUpperCase())}</span><i></i></div>
-      <p class="eyebrow">${safe(team.division, 'División por configurar')}</p><h3>${safe(team.name)}</h3>
+      <p class="eyebrow">${large ? safe(team.division, 'División por configurar') : 'MONTAJES RICA'}</p><h3>${safe(team.name)}</h3>
       <div class="team-card-meta"><span><b>${teamPlayers.length}</b> jugadores</span><span><b>${upcoming}</b> partidos pendientes</span></div>
       <a class="team-action" href="#equipos" data-view="equipos" data-team-id="${escapeHtml(team.id)}">Ver plantilla <span>↗</span></a>
     </article>`;
@@ -76,8 +77,7 @@ import { renderMatchScoreboards } from './match-scoreboard.mjs';
     document.getElementById('stats-grid').innerHTML = [
       ['◫', String(teams.length).padStart(2, '0'), 'Equipos'],
       ['♙', String(players.length).padStart(2, '0'), 'Jugadores'],
-      ['◷', String(upcoming.length).padStart(2, '0'), 'Próximos partidos'],
-      ['▤', String(new Set(teams.map((team) => team.division).filter((division) => division && !division.includes('configurar'))).size).padStart(2, '0'), 'Divisiones']
+      ['◷', String(upcoming.length).padStart(2, '0'), 'Próximos partidos']
     ].map(([icon, value, label]) => `<article class="stat-card"><span class="stat-icon">${icon}</span><strong>${value}</strong><span>${label}</span></article>`).join('');
     document.getElementById('team-grid').innerHTML = teams.map((team, index) => teamCard(team, index)).join('');
     document.getElementById('upcoming-matches').innerHTML = upcoming.length ? upcoming.slice(0, 3).map((match) => matchCard(match, true)).join('') : emptyState('◷', 'Calendario por publicar', 'Todavía no hay partidos cargados para esta temporada.');
@@ -107,6 +107,12 @@ import { renderMatchScoreboards } from './match-scoreboard.mjs';
     document.getElementById('matches-list').innerHTML = list.length ? list.map((match) => matchCard(match)).join('') : emptyState('◷', 'Aún no hay partidos', 'El calendario y los resultados aparecerán aquí cuando estén disponibles.');
   }
 
+  function renderRanking(teamId = 'all') {
+    document.getElementById('ranking-content').innerHTML = renderPlayerRanking(players, playerStats, teams, teamId);
+    document.getElementById('ranking-title').textContent = teamId === 'all'
+      ? 'Clasificación general' : `Clasificación · ${teamById(teamId)?.name || 'Equipo'}`;
+  }
+
   function renderStandings(teamId = 'all') {
     const visibleTeams = teamId === 'all' ? teams : teams.filter((team) => team.id === teamId);
     const groups = new Map();
@@ -120,7 +126,7 @@ import { renderMatchScoreboards } from './match-scoreboard.mjs';
   }
 
   function switchView(view) {
-    const names = { inicio: 'Resumen', equipos: 'Equipos', partidos: 'Partidos', clasificacion: 'Clasificación' };
+    const names = { inicio: 'Resumen', equipos: 'Equipos', partidos: 'Partidos', clasificacion: 'Clasificación', ranking: 'Ranking' };
     document.querySelectorAll('.view-section').forEach((section) => section.classList.toggle('hidden', section.id !== `view-${view}`));
     document.querySelectorAll('.nav-link').forEach((link) => link.classList.toggle('active', link.dataset.view === view));
     document.getElementById('current-section').textContent = names[view] || names.inicio;
@@ -133,10 +139,12 @@ import { renderMatchScoreboards } from './match-scoreboard.mjs';
   populateSelect(document.getElementById('team-select'));
   populateSelect(document.getElementById('match-team-filter'), true);
   populateSelect(document.getElementById('standings-team-filter'), true);
+  populateSelect(document.getElementById('ranking-team-filter'), true);
   renderOverview();
   renderRoster(teams[0]?.id);
   renderMatches();
   renderStandings();
+  renderRanking();
 
   document.addEventListener('click', (event) => {
     const link = event.target.closest('[data-view]');
@@ -152,6 +160,7 @@ import { renderMatchScoreboards } from './match-scoreboard.mjs';
   document.getElementById('team-select').addEventListener('change', (event) => renderRoster(event.target.value));
   document.getElementById('match-team-filter').addEventListener('change', (event) => renderMatches(event.target.value));
   document.getElementById('standings-team-filter').addEventListener('change', (event) => renderStandings(event.target.value));
+  document.getElementById('ranking-team-filter').addEventListener('change', (event) => renderRanking(event.target.value));
   document.getElementById('mobile-menu').addEventListener('click', (event) => {
     const opened = document.getElementById('sidebar').classList.toggle('sidebar-open');
     event.currentTarget.setAttribute('aria-expanded', String(opened));
@@ -162,5 +171,5 @@ import { renderMatchScoreboards } from './match-scoreboard.mjs';
     setTheme(nextTheme);
   });
   const initialView = location.hash.slice(1);
-  if (['equipos', 'partidos', 'clasificacion'].includes(initialView)) switchView(initialView);
+  if (['equipos', 'partidos', 'clasificacion', 'ranking'].includes(initialView)) switchView(initialView);
 })();

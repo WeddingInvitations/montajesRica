@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/match-details.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/player-stats.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/roster-table.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ranking.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-forms.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-flow.css') }}">
@@ -69,6 +70,7 @@
           <a class="nav-link" href="#equipos" data-view="equipos"><span class="nav-icon">◫</span> Equipos <span class="nav-count">{{ club.teams|length }}</span></a>
           <a class="nav-link" href="#partidos" data-view="partidos"><span class="nav-icon">◷</span> Partidos</a>
           <a class="nav-link" href="#clasificacion" data-view="clasificacion"><span class="nav-icon">▤</span> Clasificación</a>
+          <a class="nav-link" href="#ranking" data-view="ranking"><span class="nav-icon" aria-hidden="true">♜</span> Ranking</a>
           {% if current_user_is_admin %}<a class="nav-link" href="{{ url_for('admin.dashboard') }}"><span class="nav-icon">⚙</span> Administración</a>{% endif %}
         </nav>
         <div class="sidebar-bottom">
@@ -116,6 +118,11 @@
             <div class="page-title"><p class="eyebrow">LA LIGA</p><h1>Clasificación</h1><p class="intro">La lucha por cada punto en nuestras divisiones.</p></div>
             <div class="filter-row"><label class="select-wrap"><span class="sr-only">Filtrar clasificación por equipo</span><select id="standings-team-filter"></select><span aria-hidden="true">⌄</span></label><div class="filter-caption">Actualizada con los datos disponibles</div></div>
             <div id="standings-list"></div>
+          </section>
+          <section class="view-section hidden" id="view-ranking">
+            <div class="page-title"><p class="eyebrow">RENDIMIENTO INDIVIDUAL</p><h1>Ranking de jugadores</h1><p class="intro">Victorias, participación y resultados por sets en una sola clasificación.</p></div>
+            <div class="filter-row"><label class="select-wrap"><span class="sr-only">Filtrar ranking por equipo</span><select id="ranking-team-filter"></select><span aria-hidden="true">⌄</span></label></div>
+            <section class="panel"><div class="panel-heading"><h2 id="ranking-title">Clasificación general</h2></div><p class="ranking-explanation">Ordenado por índice ajustado (0–100): combina porcentaje de victorias y número de partidos mediante el límite inferior de Wilson al 95 %. Así, 1 victoria de 1 partido no supera automáticamente a 8 de 10. No mide la dificultad de los rivales ni compara el nivel de las divisiones.</p><p class="ranking-explanation">Victorias (%) = ganados / jugados. Se usan resultados de cada pareja; sin sets se usa el resultado general del equipo. Los encuentros pendientes no cuentan. Desempates: porcentaje de victorias, victorias, diferencia de sets, sets ganados y nombre. Sin partidos: sin posición.</p><div id="ranking-content"></div></section>
           </section>
           <footer class="footer"><span>© {{ club.club_name }} · Club de pádel</span><span>Hecho para jugar en equipo <span class="footer-heart">♥</span></span></footer>
         </div>

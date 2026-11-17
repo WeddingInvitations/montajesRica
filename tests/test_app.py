@@ -16,6 +16,11 @@ def test_home_displays_three_teams_after_authentication(monkeypatch):
     assert "Masculino 500" in page
     assert "Masculino Future" in page
     assert "Femenino" in page
+    assert 'data-view="ranking"' in page
+    assert 'id="view-ranking"' in page
+    assert 'id="ranking-team-filter"' in page
+    assert 'Clasificación general' in page
+    assert 'Wilson' in page
     assert "divisiones y temporada por confirmar" in page.lower()
     assert response.headers["Cross-Origin-Opener-Policy"] == "same-origin-allow-popups"
 
