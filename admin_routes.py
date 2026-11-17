@@ -17,6 +17,7 @@ from club_store import (
     list_admins,
     load_club_data,
     remove_admin,
+    replace_standings,
     set_player_active,
     update_record,
     update_team,
@@ -330,6 +331,24 @@ def create_standing():
     values = _standing_values(_club_or_fail())
     create_record("standings", values)
     flash("Posición de clasificación guardada.", "success")
+    return redirect(url_for("admin.dashboard", _anchor="clasificacion"))
+
+
+@admin_bp.post("/standings/import")
+def import_standings():
+    from standings_import import parse_standings_excel
+
+    try:
+        upload = request.files.get("standings_file")
+        if not upload or not upload.filename or not upload.filename.lower().endswith(".xlsx"):
+            raise ValueError("Selecciona un archivo Excel .xlsx de clasificaciones.")
+        rows = parse_standings_excel(upload.stream, _club_or_fail().get("teams", []))
+        count = replace_standings(rows)
+    except ValueError as error:
+        flash(str(error), "error")
+        return redirect(url_for("admin.dashboard", _anchor="clasificacion"))
+    sheets = ", ".join(dict.fromkeys(row["source_sheet"] for row in rows))
+    flash(f"Importadas {count} posiciones: {sheets}. Las hojas vacías no se han modificado.", "success")
     return redirect(url_for("admin.dashboard", _anchor="clasificacion"))
 
 

@@ -195,6 +195,38 @@ def delete_record(collection: str, record_id: str) -> None:
     reference.delete()
 
 
+def replace_standings(rows: list[dict[str, Any]], db=None) -> int:
+    """Reemplaza solo las tablas importadas en una única transacción Firestore."""
+    if datastore_mode_enabled():
+        raise ValueError("La importación Excel requiere Firestore Native.")
+    if not rows:
+        raise ValueError("No hay clasificaciones para importar.")
+    from google.cloud import firestore
+
+    db = db or firestore_client()
+    collection = db.collection("standings")
+    affected = {row["team_id"] for row in rows}
+    documents = {
+        str(uuid.uuid5(uuid.NAMESPACE_URL, f"montajesrica:standings:{row['team_id']}:{row['team_name'].strip().casefold()}")): row
+        for row in rows
+    }
+
+    @firestore.transactional
+    def replace(transaction):
+        existing = list(collection.stream(transaction=transaction))
+        obsolete = [snapshot for snapshot in existing
+                    if (snapshot.to_dict() or {}).get("team_id") in affected and snapshot.id not in documents]
+        if len(obsolete) + len(documents) > 450:
+            raise ValueError("La importación supera el límite seguro de una transacción (450 cambios).")
+        for snapshot in obsolete:
+            transaction.delete(snapshot.reference)
+        for record_id, row in documents.items():
+            transaction.set(collection.document(record_id), row)
+        return len(documents)
+
+    return replace(db.transaction())
+
+
 def update_team(team_id: str, values: dict[str, str]) -> None:
     if datastore_mode_enabled():
         datastore_update_team(team_id, values)

@@ -1,5 +1,12 @@
 .match-item + .match-item { border-top: 1px solid var(--line); }
 .match-item .match-row { border-top: 0; }
+.match-row .match-outcome-win { color: #15803d; }
+.match-row .match-outcome-loss { color: #dc2626; }
+.match-row .match-outcome-draw { color: #a16207; }
+.match-row .match-arrow[role="img"] { font-weight: 800; }
+html[data-theme="dark"] .match-row .match-outcome-win { color: #4ade80; }
+html[data-theme="dark"] .match-row .match-outcome-loss { color: #f87171; }
+html[data-theme="dark"] .match-row .match-outcome-draw { color: #facc15; }
 .match-pairings { padding: 0 0 16px 53px; }
 .match-pairings > summary { cursor: pointer; color: var(--green); font-size: 11px; font-weight: 700; list-style: none; width: fit-content; padding: 6px 0; }
 .match-pairings > summary::-webkit-details-marker, .pair-scoreboard > summary::-webkit-details-marker { display: none; }

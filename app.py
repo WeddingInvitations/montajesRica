@@ -23,7 +23,7 @@ app.config["JSON_AS_ASCII"] = False
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.getenv("APP_ENV", "development") == "production"
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 + 64 * 1024
 
 
 def _session_secret() -> str:

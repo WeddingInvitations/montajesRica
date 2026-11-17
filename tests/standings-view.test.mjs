@@ -1,0 +1,52 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+
+const source = readFileSync(new URL('../static/js/app.js', import.meta.url), 'utf8').replace(/^import .*;$/gm, '');
+
+function render() {
+  const teams = [{id:'equipo-1',name:'Equipo 500',division:'Por configurar',season:'Prueba'},
+    {id:'equipo-2',name:'Equipo Future',division:'Por configurar',season:'Prueba'}];
+  const club = {teams, players:[], matches:[], standings:[{team_id:'equipo-1',division:'Por configurar',season:'Prueba',
+    position:1,team_name:'Equipo <prueba>',played:1,wins:0,losses:1,points:0,
+    source_a:0,sets_won:0,sets_lost:2,sets_difference:-2,games_won:0,games_lost:12,games_difference:-12}]};
+  const nodes = new Map();
+  const node = id => {
+    if (!nodes.has(id)) nodes.set(id, {innerHTML:'',textContent:'',value:'',listeners:{},
+      setAttribute(){}, querySelector(){return {};}, classList:{toggle(){},remove(){}},
+      addEventListener(event, callback){this.listeners[event] = callback;}});
+    return nodes.get(id);
+  };
+  node('club-data').textContent = JSON.stringify(club);
+  vm.runInNewContext(source, {document:{getElementById:node,documentElement:{dataset:{}},querySelectorAll:()=>[],addEventListener(){}},
+    window:{matchMedia:()=>({matches:false})},localStorage:{getItem:()=>null},location:{hash:''},
+    renderPlayerRanking:()=>'',renderMatchScoreboards:()=>'',renderMatchOutcome:()=>''});
+  return nodes;
+}
+
+test('tablas se separan por equipo aunque compartan división provisional', () => {
+  const nodes = render();
+  const html = nodes.get('standings-list').innerHTML;
+  assert.equal((html.match(/Equipo &lt;prueba&gt;/g) || []).length, 1);
+  assert.match(html, /Equipo 500 · Tabla de posiciones/);
+  assert.match(html, /Equipo Future · Tabla de posiciones/);
+  assert.match(html, /Clasificación pendiente/);
+});
+
+test('filtro de equipo no muestra clasificaciones de otros equipos', () => {
+  const nodes = render();
+  nodes.get('standings-team-filter').listeners.change({target:{value:'equipo-2'}});
+  assert.doesNotMatch(nodes.get('standings-list').innerHTML, /Equipo &lt;prueba&gt;/);
+  nodes.get('standings-team-filter').listeners.change({target:{value:'equipo-1'}});
+  assert.match(nodes.get('standings-list').innerHTML, /Equipo &lt;prueba&gt;/);
+});
+
+test('Excel conserva ceros, diferencias negativas y cabeceras de sets y juegos', () => {
+  const html = render().get('standings-list').innerHTML;
+  for (const header of ['A','SG','SP','DS','JG','JP','DJ']) assert.ok(html.includes(`<th>${header}</th>`));
+  assert.match(html, /<td>0<\/td>/);
+  assert.match(html, /<td>-2<\/td>/);
+  assert.match(html, /<td>-12<\/td>/);
+  assert.doesNotMatch(html, /<prueba>/);
+});

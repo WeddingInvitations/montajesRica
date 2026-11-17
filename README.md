@@ -11,6 +11,31 @@ Portal en español para los equipos Masculino 500, Masculino Future y Femenino. 
 - Si un partido antiguo ya incluye a un jugador archivado, su referencia se conserva al editar el encuentro. Cada pareja guarda una copia del nombre en `player_names` para mostrar el resultado histórico aunque cambie la ficha actual.
 - Las estadísticas son calculadas, no contadores que se incrementan al guardar: **PJ** partidos jugados, **PG/PP** resultados de la pareja del jugador y **SG/SP** sets ganados/perdidos. Se calculan desde partidos con estado `played`; si una pareja no tiene sets detallados, se usa el marcador general del equipo. El marcador general se introduce desde la perspectiva de Montajes Rica (MR primero y rival después), sea local o visitante.
 - El cálculo es por pareja: los jugadores de una pareja reciben ese resultado. No hay doble conteo si un jugador aparece repetido en datos antiguos.
+## Importar clasificaciones desde Excel
+
+En **Administración → Clasificación → Cargar clasificaciones desde Excel** se
+puede subir el mismo formato del libro ClasificacionesMontajes (máximo 2 MB).
+Las hojas son **Clasificación 500**, **Clasificación Future** y **Clasificación Fem**.
+En cada hoja, las columnas deben mantener este orden: posición, equipo, Puntos,
+J, G, P, A, SG, SP, DS, JG, JP y DJ. Las dos primeras cabeceras pueden estar vacías;
+las demás deben coincidir con el formato. Las estadísticas deben ser valores
+numéricos, no fórmulas. Se admite un máximo de 100 equipos por hoja.
+
+Una hoja con datos **reemplaza** la clasificación de su equipo, sin duplicar
+filas en cargas sucesivas. Una hoja vacía (también si solo tiene cabeceras) **no
+borra** la clasificación que ya exista. Se valida el libro completo antes de
+escribir y se aplican los cambios en una sola transacción Firestore Native.
+La división y temporada se toman de la configuración actual del equipo; el
+Excel no las contiene. La columna A se conserva tal cual, sin inferir su significado.
+Las tablas públicas se separan por equipo e incluyen los sets y juegos del Excel.
+
+Solo pueden importar usuarios admin/owner, con sesión verificada y CSRF válido.
+El archivo se procesa temporalmente y no se conserva en el servidor ni en Git.
+La importación no afecta a jugadores, partidos ni al ranking individual.
+Para operaciones locales existe el módulo scripts.import_standings: exige
+`--project montajesrica`, valida por defecto y solo escribe con `--apply`, tras
+comprobar que la cuenta activa de gcloud tiene rol admin/owner en Firestore.
+
 ## Ranking individual
 
 La pestaña Ranking muestra la clasificación general y permite filtrar por equipo

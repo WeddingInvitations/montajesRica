@@ -1,5 +1,6 @@
 import { renderMatchScoreboards } from './match-scoreboard.mjs';
 import { renderPlayerRanking } from './player-ranking.mjs';
+import { renderMatchOutcome } from './match-outcome.mjs';
 
 (() => {
   const dataNode = document.getElementById('club-data');
@@ -62,14 +63,17 @@ import { renderPlayerRanking } from './player-ranking.mjs';
     return `<article class="match-item ${compact ? 'match-item-compact' : ''}"><div class="match-row">
       <div class="match-date"><strong>${displayDate(match).split(' ')[1] || '—'}</strong><span>${displayDate(match).split(' ').slice(0, 1).join('')}</span></div>
       <div class="match-info"><span class="match-team-label">${teamName(match.team_id)} · ${isPlayed ? 'FINALIZADO' : 'PRÓXIMO'}</span><strong>${match.home ? 'Montajes Rica' : opponent}<span class="versus"> vs </span>${match.home ? opponent : 'Montajes Rica'}</strong><small>${safe(match.venue, 'Pista por confirmar')}${match.time ? ` · ${match.time}` : ''}</small></div>
-      ${score}<span class="match-arrow">${isPlayed ? '✓' : '→'}</span>
+      ${score}${renderMatchOutcome(match)}
     </div>${pairDetails}</article>`;
   }
 
   function standingsTable(rows) {
     if (!rows.length) return emptyState('▤', 'Clasificación pendiente', 'Añadiremos las posiciones cuando tengamos los datos de las divisiones.');
     const sorted = [...rows].sort((a, b) => Number(a.position || 999) - Number(b.position || 999));
-    return `<div class="table-scroll"><table class="standings-table"><thead><tr><th>POS</th><th>EQUIPO</th><th>PJ</th><th>PG</th><th>PP</th><th>PTS</th></tr></thead><tbody>${sorted.map((row) => `<tr class="${row.is_club ? 'our-team' : ''}"><td><span class="position-badge">${safe(row.position, '—')}</span></td><td><strong>${safe(row.team_name)}</strong>${row.is_club ? '<span class="you-tag">MR</span>' : ''}</td><td>${safe(row.played, '—')}</td><td>${safe(row.wins, '—')}</td><td>${safe(row.losses, '—')}</td><td><strong>${safe(row.points, '—')}</strong></td></tr>`).join('')}</tbody></table></div>`;
+    const extraFields = ['source_a', 'sets_won', 'sets_lost', 'sets_difference', 'games_won', 'games_lost', 'games_difference'];
+    const hasExtras = rows.some(row => extraFields.some(field => row[field] !== undefined));
+    const extraHeaders = hasExtras ? '<th>A</th><th>SG</th><th>SP</th><th>DS</th><th>JG</th><th>JP</th><th>DJ</th>' : '';
+    return `<div class="table-scroll"><table class="standings-table"><thead><tr><th>POS</th><th>EQUIPO</th><th>PJ</th><th>PG</th><th>PP</th><th>PTS</th>${extraHeaders}</tr></thead><tbody>${sorted.map((row) => `<tr class="${row.is_club ? 'our-team' : ''}"><td><span class="position-badge">${safe(row.position, '—')}</span></td><td><strong>${safe(row.team_name)}</strong>${row.is_club ? '<span class="you-tag">MR</span>' : ''}</td><td>${safe(row.played, '—')}</td><td>${safe(row.wins, '—')}</td><td>${safe(row.losses, '—')}</td><td><strong>${safe(row.points, '—')}</strong></td>${hasExtras ? extraFields.map(field => `<td>${safe(row[field], '—')}</td>`).join('') : ''}</tr>`).join('')}</tbody></table></div>`;
   }
 
   function renderOverview() {
@@ -115,13 +119,11 @@ import { renderPlayerRanking } from './player-ranking.mjs';
 
   function renderStandings(teamId = 'all') {
     const visibleTeams = teamId === 'all' ? teams : teams.filter((team) => team.id === teamId);
-    const groups = new Map();
-    visibleTeams.forEach((team) => {
-      const key = `${safe(team.division, 'División por configurar')} · ${safe(team.season, club.season)}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(...standings.filter((row) => row.division === team.division && (!row.season || row.season === team.season)));
-    });
-    const cards = [...groups.entries()].map(([title, rows]) => `<section class="panel standings-card"><div class="panel-heading"><div><p class="eyebrow">${title}</p><h2>Tabla de posiciones</h2></div></div>${standingsTable(rows)}</section>`).join('');
+    const cards = visibleTeams.map(team => {
+      const title = `${safe(team.division, 'División por configurar')} · ${safe(team.season, club.season)}`;
+      const rows = standings.filter(row => row.team_id ? row.team_id === team.id : row.division === team.division && (!row.season || row.season === team.season));
+      return `<section class="panel standings-card"><div class="panel-heading"><div><p class="eyebrow">${title}</p><h2>${safe(team.name)} · Tabla de posiciones</h2></div></div>${standingsTable(rows)}</section>`;
+    }).join('');
     document.getElementById('standings-list').innerHTML = cards || emptyState('▤', 'Clasificación pendiente', 'Todavía no hay datos de liga para mostrar.');
   }
 
