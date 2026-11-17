@@ -131,6 +131,33 @@ def test_match_pairing_accepts_two_team_players_and_set_scores():
     }]
 
 
+def test_played_match_can_be_created_and_edited_without_opponent_pair_names():
+    from admin_routes import _match_values
+
+    club = {
+        "teams": [{"id": "equipo-1"}],
+        "players": [
+            {"id": "p1", "name": "Jugador Uno", "team_id": "equipo-1"},
+            {"id": "p2", "name": "Jugador Dos", "team_id": "equipo-1"},
+        ],
+    }
+    data = {
+        "team_id": "equipo-1", "opponent": "Equipo de prueba",
+        "division": "División de prueba", "date": "2026-11-17",
+        "venue": "Pista de prueba", "status": "played",
+        "pairing_player_1_1": "p1", "pairing_player_1_2": "p2",
+        "pairing_sets_1": "6-4, 7-5",
+    }
+    for existing in (None, {"pairings": [{
+        "player_ids": ["p1", "p2"], "opponent_pair": "Nombre anterior",
+    }]}):
+        for opponent_fields in ({}, {"pairing_opponent_1": ""}, {"pairing_opponent_1": "   "}):
+            with app.test_request_context("/", method="POST", data={**data, **opponent_fields}):
+                result = _match_values(club, existing)
+            assert result["pairings"][0]["opponent_pair"] == ""
+            assert result["pairings"][0]["sets"] == [{"home": 6, "away": 4}, {"home": 7, "away": 5}]
+
+
 def test_archived_player_can_be_kept_only_in_its_existing_match():
     from admin_routes import _parse_pairings
 

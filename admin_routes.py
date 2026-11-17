@@ -160,8 +160,6 @@ def _parse_pairings(
             home_score, away_score = score["home"], score["away"]
             if not (0 <= home_score <= 99 and 0 <= away_score <= 99) or home_score == away_score:
                 abort(400, description=f"El marcador de la pareja {index} contiene un set inválido.")
-        if clean_sets and not opponent_pair:
-            abort(400, description=f"Indica el nombre de la pareja rival {index}.")
         old_pair = next(
             (item for item in (existing_pairings or []) if item.get("player_ids") == player_ids),
             {},

@@ -18,7 +18,7 @@
     <div class="pairing-row">
       <span class="pairing-number">{{ index }}</span>
       <label>Pareja MR<div class="pair-selects">{% for player_number in range(2) %}<select name="pairing_player_{{ index }}_{{ player_number + 1 }}" data-player-select aria-label="Jugador {{ player_number + 1 }} de pareja {{ index }}"><option value="">Selecciona jugador</option>{% for player in club.players|sort(attribute='name') %}{% set selected_player = pair.get('player_ids', [])|length > player_number and pair.get('player_ids', [])[player_number] == player.id %}<option value="{{ player.id }}" data-team="{{ player.team_id }}" data-active="{{ 'true' if player.get('active', true) else 'false' }}" {% if selected_player %}selected{% endif %} {% if not player.get('active', true) and not selected_player %}disabled{% endif %}>{{ player.name }}{% if not player.get('active', true) %} · Archivado{% endif %}</option>{% endfor %}</select>{% endfor %}</div></label>
-      <label>Rival<input name="pairing_opponent_{{ index }}" value="{{ pair.get('opponent_pair', '') }}" maxlength="100"></label>
+      <label>Pareja rival (opcional)<input name="pairing_opponent_{{ index }}" value="{{ pair.get('opponent_pair', '') }}" maxlength="100"></label>
       <label>Sets (MR-rival)<input name="pairing_sets_{{ index }}" value="{% for score in pair.get('sets', []) %}{{ score.home }}-{{ score.away }}{% if not loop.last %}, {% endif %}{% endfor %}" placeholder="6-4, 7-5" maxlength="40"></label>
     </div>
   {% endfor %}
