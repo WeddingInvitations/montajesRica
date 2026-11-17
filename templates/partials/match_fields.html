@@ -7,7 +7,7 @@
   <label>Hora<input name="time" type="time" value="{{ match_data.get('time', '') }}"></label>
   <label>Lugar / pista<input name="venue" value="{{ match_data.get('venue', '') }}" maxlength="160" required></label>
   <label>Estado<select name="status"><option value="scheduled" {% if match_data.get('status', 'scheduled') == 'scheduled' %}selected{% endif %}>Pendiente</option><option value="played" {% if match_data.get('status') == 'played' %}selected{% endif %}>Jugado</option></select></label>
-  <label>Resultado del enfrentamiento (MR-rival)<input name="score" value="{{ match_data.get('score', '') }}" maxlength="30" placeholder="Ej.: 3-2"></label>
+  <label>Resultado del enfrentamiento (local-visitante)<input name="score" value="{{ match_data.get('score', '') }}" maxlength="30" placeholder="Ej.: 12-0"></label>
   <label class="check-label"><input name="home" type="checkbox" {% if match_data.get('home', true) %}checked{% endif %}> Montajes Rica juega como local</label>
   <label class="check-label"><input name="allow_future_players" data-future-exception type="checkbox" {% if match_data.get('allow_future_players', false) %}checked{% endif %}> Excepción: convocar jugadores de Masculino Future para Masculino 500 (sin cambiar su plantilla)</label>
 </div>

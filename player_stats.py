@@ -21,13 +21,13 @@ def _score(value: Any) -> tuple[int, int] | None:
 def _match_result(match: dict[str, Any]) -> int:
     """Return 1 if Montajes Rica won, -1 if lost, or 0 if unknown/tied.
 
-    The match score is entered from Montajes Rica's perspective, independent of
-    home/away: the first number is MR's games/points, the second is the rival's.
+    The overall score is local-away. Pairing set scores remain MR-rival.
     """
     score = _score(match.get("score"))
     if not score or score[0] == score[1]:
         return 0
-    return 1 if score[0] > score[1] else -1
+    club, opponent = score if match.get("home", True) else (score[1], score[0])
+    return 1 if club > opponent else -1
 
 
 def _pair_result(pairing: dict[str, Any], match_result: int) -> int:

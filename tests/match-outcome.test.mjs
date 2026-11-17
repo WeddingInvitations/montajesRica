@@ -2,13 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderMatchOutcome } from '../static/js/match-outcome.mjs';
 
-test('victorias y derrotas se calculan desde el club, como local o visitante', () => {
+test('el marcador es local-visitante y el resultado se calcula desde el club', () => {
   for (const home of [true, false]) {
-    const win = renderMatchOutcome({status: 'played', score: '8-4', home});
+    const win = renderMatchOutcome({status: 'played', score: home ? '12-0' : '0-12', home});
     assert.match(win, /match-outcome-win/);
     assert.match(win, /Victoria del club/);
     assert.match(win, />✓<\/span>/);
-    const loss = renderMatchOutcome({status: 'played', score: '4-8', home});
+    const loss = renderMatchOutcome({status: 'played', score: home ? '0-12' : '12-0', home});
     assert.match(loss, /match-outcome-loss/);
     assert.match(loss, /Derrota del club/);
     assert.match(loss, />✕<\/span>/);
@@ -16,10 +16,12 @@ test('victorias y derrotas se calculan desde el club, como local o visitante', (
 });
 
 test('empate a seis muestra una raya y la clase de empate', () => {
-  const result = renderMatchOutcome({status: 'played', score: ' 6 - 6 '});
-  assert.match(result, /match-outcome-draw/);
-  assert.match(result, /aria-label="Empate"/);
-  assert.match(result, />—<\/span>/);
+  for (const home of [true, false]) {
+    const result = renderMatchOutcome({status: 'played', score: ' 6 - 6 ', home});
+    assert.match(result, /match-outcome-draw/);
+    assert.match(result, /aria-label="Empate"/);
+    assert.match(result, />—<\/span>/);
+  }
 });
 
 test('marcadores de dos cifras se comparan numéricamente', () => {
