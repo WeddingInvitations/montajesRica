@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import re
+import logging
+import uuid
 from datetime import date
 from typing import Any
 
-from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 from werkzeug.exceptions import BadRequest
 
 from club_store import (
@@ -336,7 +338,16 @@ def create_standing():
 
 @admin_bp.post("/standings/import")
 def import_standings():
-    from standings_import import parse_standings_excel
+    from standings_import import SHEETS, normalized, parse_standings_excel
+    from werkzeug.exceptions import HTTPException
+
+    wants_json = request.accept_mimetypes.best == "application/json"
+
+    def failure(message, status):
+        if wants_json:
+            return jsonify(ok=False, message=message), status
+        flash(message, "error")
+        return redirect(url_for("admin.dashboard", _anchor="clasificacion"))
 
     try:
         upload = request.files.get("standings_file")
@@ -345,10 +356,25 @@ def import_standings():
         rows = parse_standings_excel(upload.stream, _club_or_fail().get("teams", []))
         count = replace_standings(rows)
     except ValueError as error:
-        flash(str(error), "error")
-        return redirect(url_for("admin.dashboard", _anchor="clasificacion"))
-    sheets = ", ".join(dict.fromkeys(row["source_sheet"] for row in rows))
-    flash(f"Importadas {count} posiciones: {sheets}. Las hojas vacías no se han modificado.", "success")
+        return failure(f"No se ha guardado ninguna hoja. {error}", 400)
+    except HTTPException:
+        raise
+    except Exception:
+        reference = uuid.uuid4().hex[:12]
+        logging.exception("Error importando clasificaciones. Referencia %s", reference)
+        return failure(f"No se ha podido confirmar la importación en Firestore. Referencia: {reference}. "
+                       "Recarga la clasificación para comprobar su estado antes de reintentar o comunicar este código al administrador.", 503)
+    summary = [{"sheet": title, "team_id": team_id,
+                "count": sum(normalized(row["source_sheet"]) == title for row in rows)}
+               for title, team_id in SHEETS.items()]
+    labels = {"equipo-1": "Clasificación 500", "equipo-2": "Clasificación Future", "equipo-3": "Clasificación Fem"}
+    for item in summary:
+        item["sheet"] = labels[item["team_id"]]
+    message = f"Importadas {count} posiciones. " + " · ".join(
+        f"{item['sheet']}: {item['count']} posiciones" if item["count"] else f"{item['sheet']}: vacía, sin cambios" for item in summary)
+    if wants_json:
+        return jsonify(ok=True, message=message, sheets=summary, count=count)
+    flash(message, "success")
     return redirect(url_for("admin.dashboard", _anchor="clasificacion"))
 
 

@@ -8,6 +8,7 @@ from zipfile import BadZipFile, ZipFile
 from xml.etree.ElementTree import ParseError
 
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 from defusedxml.common import DefusedXmlException
 
@@ -59,9 +60,16 @@ def parse_standings_excel(source, teams):
                             raise ValueError(f"La hoja {sheet.title} admite como máximo 100 equipos.")
                 if not populated:
                     continue
-                _, header = populated[0]
-                if [normalized(value) for value in header[2:13]] != HEADERS:
-                    raise ValueError(f"Cabeceras incorrectas en {sheet.title}: se esperan posición, equipo, Puntos, J, G, P, A, SG, SP, DS, JG, JP y DJ.")
+                header_number, header = populated[0]
+                # El libro original de Femenino deja C (Puntos) sin título.
+                # Solo se admite ese hueco si J..DJ están en su posición exacta.
+                actual_headers = [normalized(value) for value in header[2:13]]
+                if actual_headers[0] == "" and actual_headers[1:] == HEADERS[1:]:
+                    actual_headers[0] = "puntos"
+                for column, (actual, expected) in enumerate(zip(actual_headers, HEADERS), 3):
+                    if actual != expected:
+                        raise ValueError(f"Hoja «{sheet.title}», fila {header_number}, columna {get_column_letter(column)}: "
+                                         f"se esperaba la cabecera «{expected.upper()}»; recibido «{str(header[column - 1] or '(vacía)')[:80]}».")
                 if len(populated) == 1:
                     continue
                 team = team_by_id.get(team_id)
@@ -69,25 +77,32 @@ def parse_standings_excel(source, teams):
                     raise ValueError(f"Falta configurar el equipo de {sheet.title}.")
                 positions, names = set(), set()
                 for number, row in populated[1:]:
-                    def integer(value, label, minimum=0):
+                    def integer(value, label, column, minimum=0):
                         if isinstance(value, bool) or not isinstance(value, (int, float)) or not minimum <= value <= 99999 or int(value) != value:
-                            raise ValueError(f"{sheet.title}, fila {number}: {label} debe ser un entero válido.")
+                            received = "(vacío)" if value is None else str(value)[:80]
+                            raise ValueError(f"Hoja «{sheet.title}», fila {number}, columna {column} ({label}): "
+                                             f"se esperaba un entero entre {minimum} y 99999; recibido «{received}». No se admiten fórmulas.")
                         return int(value)
 
-                    position = integer(row[0], "posición", 1)
+                    position = integer(row[0], "posición", "A", 1)
                     name = row[1].strip() if isinstance(row[1], str) else ""
                     if not name or len(name) > 120 or name.startswith(("=", "+", "@")):
-                        raise ValueError(f"{sheet.title}, fila {number}: nombre de equipo inválido.")
+                        raise ValueError(f"Hoja «{sheet.title}», fila {number}, columna B (equipo): indica un nombre de 1 a 120 caracteres, sin fórmulas.")
                     if position in positions or normalized(name) in names:
                         raise ValueError(f"{sheet.title}, fila {number}: posición o equipo duplicado.")
                     positions.add(position)
                     names.add(normalized(name))
-                    values = {field: integer(value, HEADERS[index], -99999 if field.endswith("difference") else 0)
+                    values = {field: integer(value, HEADERS[index].upper(), get_column_letter(index + 3), -99999 if field.endswith("difference") else 0)
                               for index, (field, value) in enumerate(zip(FIELDS, row[2:13]))}
                     if values["wins"] + values["losses"] > values["played"]:
-                        raise ValueError(f"{sheet.title}, fila {number}: ganados y perdidos superan los jugados.")
-                    if values["sets_won"] - values["sets_lost"] != values["sets_difference"] or values["games_won"] - values["games_lost"] != values["games_difference"]:
-                        raise ValueError(f"{sheet.title}, fila {number}: las diferencias de sets o juegos no coinciden.")
+                        raise ValueError(f"Hoja «{sheet.title}», fila {number}, columnas D–F (J/G/P): ganados ({values['wins']}) y perdidos ({values['losses']}) superan los jugados ({values['played']}).")
+                    for won, lost, difference, column, label in [
+                        ("sets_won", "sets_lost", "sets_difference", "J", "DS = SG − SP"),
+                        ("games_won", "games_lost", "games_difference", "M", "DJ = JG − JP"),
+                    ]:
+                        expected = values[won] - values[lost]
+                        if values[difference] != expected:
+                            raise ValueError(f"Hoja «{sheet.title}», fila {number}, columna {column} ({label}): se esperaba {expected}; recibido {values[difference]}.")
                     result.append({**values, "team_id": team_id, "division": team.get("division", "División por configurar"),
                                    "season": team.get("season", "Por configurar"), "position": position,
                                    "team_name": name, "is_club": normalized(name).startswith("montajes rica"), "source_sheet": sheet.title})

@@ -172,10 +172,21 @@ def clear_invalid_session_cookie(response):
 @app.errorhandler(401)
 @app.errorhandler(403)
 @app.errorhandler(404)
+@app.errorhandler(413)
 @app.errorhandler(500)
 @app.errorhandler(503)
 def application_error(error):
     description = getattr(error, "description", "Ha ocurrido un error inesperado.")
+    if request.endpoint == "admin.import_standings" and request.accept_mimetypes.best == "application/json":
+        if error.code == 413:
+            description = "El archivo supera el tamaño permitido. Sube un Excel de hasta 2 MB."
+        elif error.code == 400 and "CSRF" in description:
+            description = "El formulario ha caducado o su protección CSRF no es válida. Recarga la página y vuelve a seleccionar el Excel."
+        elif error.code == 401:
+            description = "Tu sesión ha caducado. Inicia sesión de nuevo antes de importar."
+        elif error.code == 403:
+            description = "Solo los administradores y propietarios pueden importar clasificaciones."
+        return jsonify(ok=False, message=description), error.code
     if request.endpoint == "create_auth_session":
         response = jsonify({"error": error.name, "description": description})
         response.status_code = error.code

@@ -18,7 +18,9 @@ puede subir el mismo formato del libro ClasificacionesMontajes (máximo 2 MB).
 Las hojas son **Clasificación 500**, **Clasificación Future** y **Clasificación Fem**.
 En cada hoja, las columnas deben mantener este orden: posición, equipo, Puntos,
 J, G, P, A, SG, SP, DS, JG, JP y DJ. Las dos primeras cabeceras pueden estar vacías;
-las demás deben coincidir con el formato. Las estadísticas deben ser valores
+la cabecera de Puntos también puede estar vacía (como en la hoja Femenino del
+libro original), siempre que J..DJ coincidan exactamente y Puntos esté en C.
+Las demás deben coincidir con el formato. Las estadísticas deben ser valores
 numéricos, no fórmulas. Se admite un máximo de 100 equipos por hoja.
 
 Una hoja con datos **reemplaza** la clasificación de su equipo, sin duplicar
@@ -32,6 +34,12 @@ Las tablas públicas se separan por equipo e incluyen los sets y juegos del Exce
 Solo pueden importar usuarios admin/owner, con sesión verificada y CSRF válido.
 El archivo se procesa temporalmente y no se conserva en el servidor ni en Git.
 La importación no afecta a jugadores, partidos ni al ranking individual.
+El formulario muestra el resultado de las tres hojas sin abandonar la página.
+Los errores de datos identifican hoja, fila, columna y valor esperado/recibido;
+si una hoja falla, ninguna se guarda. También se informa de sesión caducada,
+CSRF y tamaño excesivo. Si falla la comunicación durante el guardado, se pide
+recargar para comprobar el estado, sin afirmar que no hubo cambios. Los fallos
+internos se registran en el servidor con una referencia, sin exponer credenciales.
 Para operaciones locales existe el módulo scripts.import_standings: exige
 `--project montajesrica`, valida por defecto y solo escribe con `--apply`, tras
 comprobar que la cuenta activa de gcloud tiene rol admin/owner en Firestore.

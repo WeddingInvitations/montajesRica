@@ -47,6 +47,41 @@ def test_real_structure_ignores_empty_sheets_and_preserves_every_statistic():
     }
 
 
+def excel_with_missing_points_header():
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(excel(future=[ROW], fem=[ROW]))
+    workbook["Clasificación Fem"].cell(1, 3).value = None
+    stream = BytesIO()
+    workbook.save(stream)
+    workbook.close()
+    stream.seek(0)
+    return stream
+
+
+def test_original_three_sheet_layout_accepts_missing_points_title_in_fem():
+    rows = parse_standings_excel(excel_with_missing_points_header(), TEAMS)
+    assert [row["team_id"] for row in rows] == ["equipo-1", "equipo-2", "equipo-3"]
+    assert all(row["points"] == 20 for row in rows)
+
+
+def test_missing_points_title_does_not_allow_other_missing_or_shifted_headers():
+    header = list(HEADER)
+    header[2] = None
+    header[3] = None
+    with pytest.raises(ValueError, match="columna C"):
+        parse_standings_excel(excel(header=header), TEAMS)
+
+
+def test_invalid_cell_reports_sheet_row_column_field_and_value():
+    row = list(ROW)
+    row[3] = "no-numérico"
+    with pytest.raises(ValueError) as error:
+        parse_standings_excel(excel(fem=[row]), TEAMS)
+    for detail in ["Clasificación Fem", "fila 2", "columna D", "(J)", "no-numérico", "entero"]:
+        assert detail in str(error.value)
+
+
 def test_future_rows_have_their_own_team_and_negative_differences_are_valid():
     row = [1, "Equipo de prueba", 0, 1, 0, 1, 0, 0, 2, -2, 0, 12, -12]
     rows = parse_standings_excel(excel(future=[row]), TEAMS)
@@ -145,6 +180,80 @@ def test_watcher_cannot_import_and_admin_requires_csrf(monkeypatch):
     admin_context(monkeypatch)
     monkeypatch.setitem(app.config, "WTF_CSRF_ENABLED", True)
     assert app.test_client().post("/admin/standings/import", data={"standings_file": (excel(), "file.xlsx")}).status_code == 400
+
+
+def test_json_upload_returns_all_three_sheet_counts(monkeypatch):
+    admin_context(monkeypatch)
+    writes = []
+    monkeypatch.setattr("admin_routes.replace_standings", lambda rows: writes.append(rows) or len(rows))
+    response = app.test_client().post("/admin/standings/import", headers={"Accept": "application/json"}, data={
+        "standings_file": (excel_with_missing_points_header(), "clasificaciones.xlsx"),
+    })
+    assert response.status_code == 200
+    assert response.json["ok"] is True
+    assert response.json["count"] == 3
+    assert [sheet["count"] for sheet in response.json["sheets"]] == [1, 1, 1]
+    assert len(writes) == 1
+
+
+def test_json_upload_reports_empty_sheets_explicitly(monkeypatch):
+    admin_context(monkeypatch)
+    monkeypatch.setattr("admin_routes.replace_standings", lambda rows: len(rows))
+    response = app.test_client().post("/admin/standings/import", headers={"Accept": "application/json"}, data={
+        "standings_file": (excel(), "clasificaciones.xlsx"),
+    })
+    assert [sheet["count"] for sheet in response.json["sheets"]] == [1, 0, 0]
+    assert "Clasificación Future: vacía, sin cambios" in response.json["message"]
+
+
+def test_json_error_in_fem_is_visible_and_nothing_is_written(monkeypatch):
+    admin_context(monkeypatch)
+    monkeypatch.setattr("admin_routes.replace_standings", lambda rows: pytest.fail("must not write"))
+    row = list(ROW)
+    row[3] = "incorrecto"
+    response = app.test_client().post("/admin/standings/import", headers={"Accept": "application/json"}, data={
+        "standings_file": (excel(future=[ROW], fem=[row]), "clasificaciones.xlsx"),
+    })
+    assert response.status_code == 400
+    assert response.json["ok"] is False
+    for detail in ["No se ha guardado ninguna hoja", "Clasificación Fem", "fila 2", "columna D", "incorrecto"]:
+        assert detail in response.json["message"]
+
+
+def test_json_server_failure_returns_reference_without_private_details(monkeypatch):
+    admin_context(monkeypatch)
+
+    def fail(rows):
+        raise RuntimeError("private backend details")
+
+    monkeypatch.setattr("admin_routes.replace_standings", fail)
+    response = app.test_client().post("/admin/standings/import", headers={"Accept": "application/json"}, data={
+        "standings_file": (excel(), "clasificaciones.xlsx"),
+    })
+    assert response.status_code == 503
+    assert "Referencia:" in response.json["message"]
+    assert "private backend details" not in response.json["message"]
+    assert "No se ha guardado" not in response.json["message"]
+
+
+def test_json_csrf_permissions_and_oversize_errors_are_actionable(monkeypatch):
+    admin_context(monkeypatch, role="watcher")
+    headers = {"Accept": "application/json"}
+    response = app.test_client().post("/admin/standings/import", headers=headers)
+    assert response.status_code == 403
+    assert response.json["ok"] is False
+    assert "administradores" in response.json["message"]
+    admin_context(monkeypatch)
+    monkeypatch.setitem(app.config, "WTF_CSRF_ENABLED", True)
+    response = app.test_client().post("/admin/standings/import", headers=headers)
+    assert response.status_code == 400
+    assert "CSRF" in response.json["message"]
+    monkeypatch.setitem(app.config, "WTF_CSRF_ENABLED", False)
+    response = app.test_client().post("/admin/standings/import", headers=headers, data={
+        "standings_file": (BytesIO(b"x" * (3 * 1024 * 1024)), "big.xlsx"),
+    })
+    assert response.status_code == 413
+    assert "2 MB" in response.json["message"]
 
 
 def test_replace_is_atomic_idempotent_and_preserves_other_teams(monkeypatch):

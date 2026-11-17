@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-tabs.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-pairings.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/player-stats.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/standings-upload.css') }}">
   </head>
   <body>
     <main class="admin-wrap">
@@ -132,13 +133,15 @@
 
       <section class="admin-section hidden" id="clasificacion" role="tabpanel" aria-labelledby="tab-clasificacion" hidden>
         <div class="admin-section-heading"><div><p class="eyebrow">TABLAS DE LIGA</p><h2>Clasificación <span>{{ club.standings|length }}</span></h2></div></div>
-        <form class="admin-card admin-form" method="post" enctype="multipart/form-data" action="{{ url_for('admin.import_standings') }}" onsubmit="return confirm('¿Reemplazar las clasificaciones de las hojas con datos? Las hojas vacías se conservarán sin cambios.')">
+        <form class="admin-card admin-form" method="post" enctype="multipart/form-data" action="{{ url_for('admin.import_standings') }}" data-standings-upload>
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <h3>Cargar las tres clasificaciones desde un único Excel</h3>
           <p class="admin-help">Una sola subida recorre automáticamente las tres hojas: Clasificación 500 → Masculino 500; Clasificación Future → Masculino Future; Clasificación Fem → Femenino. No necesitas subir un archivo por equipo.</p>
           <label>Archivo de clasificaciones (.xlsx, máximo 2 MB)<input type="file" name="standings_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></label>
-          <p class="admin-help">Formato de ClasificacionesMontajes: hojas Clasificación 500, Clasificación Future y Clasificación Fem. Columnas: posición, equipo, Puntos, J, G, P, A, SG, SP, DS, JG, JP y DJ. Las dos primeras cabeceras pueden estar vacías. Cada hoja con datos reemplaza la tabla de su equipo; las hojas vacías no borran nada. Se conservan la división y temporada configuradas del equipo. No se guarda el archivo.</p>
+          <p class="admin-help">Formato de ClasificacionesMontajes: hojas Clasificación 500, Clasificación Future y Clasificación Fem. Columnas: posición, equipo, Puntos, J, G, P, A, SG, SP, DS, JG, JP y DJ. Las dos primeras cabeceras y el título Puntos pueden estar vacíos, pero sus datos deben estar presentes. Cada hoja con datos reemplaza la tabla de su equipo; las hojas vacías no borran nada. Se conservan la división y temporada configuradas del equipo. No se guarda el archivo.</p>
           <button class="admin-button" type="submit">Importar las tres hojas</button>
+          <p class="standings-upload-feedback" data-upload-feedback role="status" aria-live="polite" tabindex="-1" hidden></p>
+          <a class="admin-help" href="{{ url_for('admin.dashboard', _anchor='clasificacion') }}" data-upload-reload hidden>Recargar para ver las clasificaciones actualizadas</a>
         </form>
         <form class="admin-card admin-form" method="post" action="{{ url_for('admin.create_standing') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -176,6 +179,7 @@
       <footer class="admin-footer"><span>Montajes Rica · Acceso de administración restringido</span><a href="/">Volver al portal</a></footer>
     </main>
     <script defer src="{{ url_for('static', filename='js/admin.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/standings-upload.js') }}"></script>
     <script type="module" src="{{ url_for('static', filename='js/auth.js') }}"></script>
   </body>
 </html>
