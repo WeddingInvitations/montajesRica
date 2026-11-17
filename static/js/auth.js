@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword,
   EmailAuthProvider,
   getAdditionalUserInfo,
+  browserPopupRedirectResolver,
   GoogleAuthProvider,
   initializeAuth,
   inMemoryPersistence,
@@ -18,7 +19,10 @@ import { firebaseConfig } from './firebase-config.js';
 const app = initializeApp(firebaseConfig);
 // Set memory-only persistence synchronously at initialization. Mobile browsers
 // can cancel popup user activation if the click handler awaits setPersistence.
-const auth = initializeAuth(app, { persistence: inMemoryPersistence });
+const auth = initializeAuth(app, {
+  persistence: [inMemoryPersistence],
+  popupRedirectResolver: browserPopupRedirectResolver
+});
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
@@ -67,6 +71,7 @@ function friendlyAuthError(error) {
     return `Google te autenticó, pero el servidor no pudo crear la sesión (HTTP ${error.status || 'desconocido'}).`;
   }
   const messages = {
+    'auth/argument-error': 'La configuración del inicio de sesión Google no es válida. Recarga la página para usar la configuración actualizada.',
     'auth/configuration-not-found': 'Firebase Authentication aún no está inicializado en montajesrica. En Firebase Console abre Authentication y pulsa “Comenzar”.',
     'auth/unauthorized-domain': 'Este dominio no está autorizado. Añade localhost, 127.0.0.1 y montajesrica.ew.r.appspot.com en Authentication → Configuración → Dominios autorizados.',
     'auth/operation-not-allowed': 'Habilita Google y Correo/contraseña en Firebase Console → Authentication → Método de acceso.',
