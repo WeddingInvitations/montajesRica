@@ -6,6 +6,7 @@
   <label>Rival<input name="opponent" value="{{ match_data.get('opponent', '') }}" maxlength="120" required></label>
   <label>División<input name="division" value="{{ match_data.get('division', '') }}" maxlength="100" placeholder="División" required></label>
   <label>Fecha<input name="date" type="date" value="{{ match_data.get('date', '') }}" required></label>
+  <label>Jornada<input name="jornada" type="number" min="1" max="999" step="1" value="{{ match_data.get('jornada') or '' }}" placeholder="Ej.: 3"></label>
   <label>Hora<input name="time" type="time" value="{{ match_data.get('time', '') }}"></label>
   <label>Lugar / pista<input name="venue" value="{{ match_data.get('venue', '') }}" maxlength="160" required></label>
   <label>Estado<select name="status"><option value="scheduled" {% if match_data.get('status', 'scheduled') == 'scheduled' %}selected{% endif %}>Pendiente</option><option value="played" {% if match_data.get('status') == 'played' %}selected{% endif %}>Jugado</option></select></label>

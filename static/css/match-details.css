@@ -1,4 +1,6 @@
 .match-item + .match-item { border-top: 1px solid var(--line); }
+.matchday-heading { margin: 0; padding: 18px 0 10px; font-size: 15px; color: var(--ink); }
+.matchday-group + .matchday-group { margin-top: 12px; border-top: 1px solid var(--line); }
 .match-item .match-row { border-top: 0; }
 .match-row .match-outcome-win { color: #15803d; }
 .match-row .match-outcome-loss { color: #dc2626; }

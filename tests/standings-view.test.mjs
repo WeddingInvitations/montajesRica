@@ -5,13 +5,14 @@ import vm from 'node:vm';
 
 const source = readFileSync(new URL('../static/js/app.js', import.meta.url), 'utf8').replace(/^import .*;$/gm, '');
 
-function render(metadata = {}) {
+function render(metadata = {}, fixtures = []) {
   const teams = [{id:'equipo-1',name:'Equipo 500',division:'Por configurar',season:'Prueba'},
     {id:'equipo-2',name:'Equipo Future',division:'Por configurar',season:'Prueba'}];
   const club = {teams, players:[], matches:[], standings:[{team_id:'equipo-1',division:'Por configurar',season:'Prueba',
     position:1,team_name:'Equipo <prueba>',played:1,wins:0,losses:1,points:0,
     source_a:0,sets_won:0,sets_lost:2,sets_difference:-2,games_won:0,games_lost:12,games_difference:-12}]};
   teams.forEach(team => Object.assign(team, metadata));
+  club.matches = fixtures;
   const nodes = new Map();
   const node = id => {
     if (!nodes.has(id)) nodes.set(id, {innerHTML:'',textContent:'',value:'',listeners:{},
@@ -68,4 +69,23 @@ test('mantiene divisiones y temporadas reales y escapa su contenido', () => {
     assert.match(html, /División de prueba &lt;ejemplo&gt;/);
     assert.match(html, /2026\/2027/);
   }
+});
+
+test('partidos agrupados por jornada numérica, ordenados por fecha dentro y con antiguos al final', () => {
+  const fixtures = [
+    {jornada:10,opponent:'Rival diez',date:'2026-01-01',team_id:'equipo-1'},
+    {jornada:2,opponent:'Rival segundo',date:'2026-02-02',team_id:'equipo-1'},
+    {opponent:'Rival antiguo',date:'2026-01-01',team_id:'equipo-1'},
+    {jornada:2,opponent:'Rival primero',date:'2026-02-01',team_id:'equipo-2'},
+  ];
+  const nodes=render({},fixtures);
+  const html=nodes.get('matches-list').innerHTML;
+  assert.ok(html.indexOf('Jornada 2') < html.indexOf('Jornada 10'));
+  assert.ok(html.indexOf('Jornada 10') < html.indexOf('Sin jornada asignada'));
+  assert.ok(html.indexOf('Rival primero') < html.indexOf('Rival segundo'));
+  assert.equal((html.match(/<h2 class="matchday-heading">Jornada 2/g)||[]).length,1);
+  nodes.get('match-team-filter').listeners.change({target:{value:'equipo-2'}});
+  const filtered=nodes.get('matches-list').innerHTML;
+  assert.match(filtered,/Jornada 2/);
+  assert.doesNotMatch(filtered,/Jornada 10|Sin jornada asignada|Rival segundo/);
 });

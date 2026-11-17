@@ -118,7 +118,7 @@
         </form>
         <div class="record-list">
           {% for match in club.matches|sort(attribute='date', reverse=true) %}
-          <details class="admin-card match-record"><summary><strong>{{ match.date }} · {{ match.team_id }} vs {{ match.opponent }}</strong><span>{{ match.score or 'Sin resultado' }}</span></summary>
+          <details class="admin-card match-record"><summary><strong>{{ match.date }} · {{ 'Jornada ' ~ match.jornada if match.get('jornada') else 'Sin jornada asignada' }} · {{ match.team_id }} vs {{ match.opponent }}</strong><span>{{ match.score or 'Sin resultado' }}</span></summary>
             <form class="admin-form" method="post" action="{{ url_for('admin.edit_match', match_id=match.id) }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               {% set editing = match %}{% include 'partials/match_fields.html' %}

@@ -114,7 +114,16 @@ import { renderMatchOutcome } from './match-outcome.mjs';
 
   function renderMatches(teamId = 'all') {
     const list = matches.filter((match) => teamId === 'all' || match.team_id === teamId).sort((a, b) => (dateValue(a) || Infinity) - (dateValue(b) || Infinity));
-    document.getElementById('matches-list').innerHTML = list.length ? list.map((match) => matchCard(match)).join('') : emptyState('◷', 'Aún no hay partidos', 'El calendario y los resultados aparecerán aquí cuando estén disponibles.');
+    const groups = new Map();
+    list.forEach(match => {
+      const jornada = Number.isInteger(match.jornada) && match.jornada > 0 ? match.jornada : null;
+      if (!groups.has(jornada)) groups.set(jornada, []);
+      groups.get(jornada).push(match);
+    });
+    document.getElementById('matches-list').innerHTML = list.length
+      ? [...groups.entries()].sort(([a], [b]) => (a ?? Infinity) - (b ?? Infinity))
+        .map(([jornada, fixtures]) => `<section class="matchday-group"><h2 class="matchday-heading">${jornada === null ? 'Sin jornada asignada' : `Jornada ${jornada}`}</h2>${fixtures.map(match => matchCard(match)).join('')}</section>`).join('')
+      : emptyState('◷', 'Aún no hay partidos', 'El calendario y los resultados aparecerán aquí cuando estén disponibles.');
   }
 
   function renderRanking(teamId = 'all') {

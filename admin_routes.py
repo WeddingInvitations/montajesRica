@@ -195,6 +195,14 @@ def _match_values(club: dict[str, Any], existing_match: dict[str, Any] | None = 
     opponent = _required_text("opponent", "rival", 120)
     division = _required_text("division", "división", 100)
     match_date = _required_text("date", "fecha", 10)
+    raw_jornada = request.form.get("jornada", "").strip()
+    jornada = None
+    if raw_jornada:
+        if not re.fullmatch(r"[0-9]{1,3}", raw_jornada) or not 1 <= int(raw_jornada) <= 999:
+            abort(400, description="La jornada debe ser un número entero entre 1 y 999.")
+        jornada = int(raw_jornada)
+    elif "jornada" not in request.form and existing_match:
+        jornada = existing_match.get("jornada")
     try:
         date.fromisoformat(match_date)
     except ValueError:
@@ -231,6 +239,7 @@ def _match_values(club: dict[str, Any], existing_match: dict[str, Any] | None = 
         "opponent": opponent,
         "division": division,
         "date": match_date,
+        "jornada": jornada,
         "time": time,
         "venue": venue,
         "home": request.form.get("home") == "on",
