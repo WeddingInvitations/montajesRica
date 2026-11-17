@@ -7,6 +7,7 @@ from datetime import date
 from typing import Any
 
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from werkzeug.exceptions import BadRequest
 
 from club_store import (
     add_admin,
@@ -351,10 +352,14 @@ def remove_standing(standing_id: str):
 
 @admin_bp.post("/admins")
 def create_admin():
-    email = _required_text("email", "correo", 254).lower()
-    if "@" not in email or email.startswith("@") or email.endswith("@"):
-        abort(400, description="El correo no tiene un formato válido.")
-    add_admin(email)
+    try:
+        email = _required_text("email", "correo", 254).lower()
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+            abort(400, description="El correo no tiene un formato válido.")
+        add_admin(email)
+    except BadRequest as error:
+        flash(error.description, "error")
+        return redirect(url_for("admin.dashboard", _anchor="administradores"))
     flash("Permisos de administración concedidos.", "success")
     return redirect(url_for("admin.dashboard", _anchor="administradores"))
 

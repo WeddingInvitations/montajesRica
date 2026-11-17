@@ -243,15 +243,19 @@ def add_admin(email: str) -> None:
     try:
         firebase_user = firebase_auth.get_user_by_email(cleaned, app=firebase_app())
     except firebase_auth.UserNotFoundError:
-        abort(404, description="La cuenta debe iniciar sesión con Google al menos una vez antes de asignarle el rol admin.")
+        abort(400, description="Ese correo todavía no está registrado en Firebase Authentication. La persona debe entrar primero con Google o registrarse con correo y contraseña (y verificar su correo). Después podrás asignarle el rol admin.")
     providers = {provider.provider_id for provider in firebase_user.provider_data}
-    if firebase_user.disabled or "google.com" not in providers:
-        abort(400, description="La cuenta debe estar activa y tener Google como proveedor de acceso.")
+    if firebase_user.disabled:
+        abort(400, description="La cuenta está desactivada en Firebase Authentication. Actívala antes de concederle permisos.")
+    if not providers.intersection({"google.com", "password"}):
+        abort(400, description="La cuenta debe tener Google o correo y contraseña como método de acceso.")
+    if "google.com" not in providers and not firebase_user.email_verified:
+        abort(400, description="La cuenta debe verificar su correo antes de recibir permisos de administración.")
     ensure_user_profile(
         uid=firebase_user.uid,
         email=firebase_user.email or cleaned,
         display_name=firebase_user.display_name or cleaned.split("@", 1)[0],
-        provider="google.com",
+        provider="google.com" if "google.com" in providers else "password",
     )
     reference = firestore_client().collection("users").document(firebase_user.uid)
     current_profile = reference.get().to_dict() or {}

@@ -25,7 +25,7 @@
       </header>
       <div class="admin-intro"><p class="eyebrow">GESTIÓN INTERNA</p><h1>Panel de administración</h1><p>Los cambios se guardan en Firestore y quedan disponibles para los usuarios con sesión de Google.</p></div>
       {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}<div class="flash-list">{% for category, message in messages %}<p class="flash flash-{{ category }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+        {% if messages %}<div class="flash-list">{% for category, message in messages %}<p class="flash flash-{{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ message }}</p>{% endfor %}</div>{% endif %}
       {% endwith %}
       <nav class="admin-nav" role="tablist" aria-label="Secciones de administración">
         <button class="admin-tab active" id="tab-equipos" type="button" role="tab" aria-selected="true" aria-controls="equipos" data-admin-tab="equipos">Equipos</button>
@@ -159,7 +159,8 @@
         <form class="admin-card admin-form add-admin-form" method="post" action="{{ url_for('admin.create_admin') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <h3>Dar acceso de administración</h3>
-          <div class="form-grid"><label>Correo de Google<input name="email" type="email" maxlength="254" placeholder="persona@gmail.com" required></label><div class="form-submit"><button class="admin-button" type="submit">Añadir administrador</button></div></div>
+          <div class="form-grid"><label>Correo de una cuenta registrada<input name="email" type="email" maxlength="254" placeholder="persona@ejemplo.com" required></label><div class="form-submit"><button class="admin-button" type="submit">Añadir administrador</button></div></div>
+          <p class="admin-help">La persona debe haberse registrado antes con Google o con correo y contraseña verificado. Esta acción asigna el rol admin; no crea ni invita cuentas nuevas.</p>
         </form>
         <div class="record-list admin-list">{% for admin in admins %}<article class="admin-card admin-person"><span>{{ admin.email }} · {{ admin.role|upper }}</span><form method="post" action="{{ url_for('admin.remove_admin_route', admin_id=admin.id) }}" onsubmit="return confirm('¿Retirar el acceso de administración a esta cuenta?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-danger" type="submit">Retirar acceso</button></form></article>{% endfor %}</div>
         <p class="admin-help">El primer administrador se configura con el script de inicialización documentado en el README. Después, los administradores podrán dar o retirar acceso desde aquí.</p>

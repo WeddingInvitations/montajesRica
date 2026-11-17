@@ -75,6 +75,27 @@ Copy-Item .env.example .env
 python -m flask --app app run --debug
 ```
 
+Flask carga automáticamente `.flaskenv` (configuración pública del proyecto) y `.env`
+(configuración privada local) mediante `python-dotenv`, incluido en las dependencias.
+No lee `app.yaml` al arrancar en local: ese archivo solo configura App Engine.
+Por eso habilitar el dominio en Firebase no basta si el servidor desconoce
+`FIREBASE_PROJECT_ID` o no tiene credenciales ADC.
+
+Para probar las plantillas y administración con los datos ya importados, establece
+`USE_FIRESTORE=true` en `.env`. **Aunque la web esté en localhost, las escrituras
+del panel modificarán la base real de `montajesrica`.** El valor por defecto de
+`.flaskenv` es `false` para mostrar únicamente los datos provisionales del club.
+La autenticación y los roles siguen usando Firebase/Firestore en ambos casos;
+no es un modo offline ni una copia local de la base.
+
+Puedes comprobar el proyecto y todos los permisos necesarios sin escribir datos:
+
+```powershell
+python -m scripts.check_local_auth
+```
+
+Si cambias `.env` o las credenciales ADC, detén Flask con Ctrl+C y vuelve a arrancarlo.
+
 Configura en Firebase Auth `localhost` y el dominio local que uses. Flask también necesita ADC de una cuenta que tenga acceso a Firestore y Firebase Auth; `gcloud auth login` por sí solo no configura esas credenciales para Python. En el flujo de autorización, selecciona una cuenta con permisos en `montajesrica` (no una cuenta sin acceso):
 
 ```powershell
