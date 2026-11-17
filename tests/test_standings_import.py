@@ -11,7 +11,7 @@ HEADER = [None, None, "Puntos", "J", "G", "P", "A", "SG", "SP", "DS", "JG", "JP"
 ROW = [1, "MONTAJES RICA PRUEBA", 20, 3, 2, 1, 0, 12, 8, 4, 90, 75, 15]
 
 
-def excel(rows=None, future=None, header=None):
+def excel(rows=None, future=None, header=None, fem=None):
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Clasificación 500"
@@ -23,7 +23,11 @@ def excel(rows=None, future=None, header=None):
         second.append(HEADER)
         for row in future:
             second.append(row)
-    workbook.create_sheet("Clasificación Fem")
+    third = workbook.create_sheet("Clasificación Fem")
+    if fem:
+        third.append(HEADER)
+        for row in fem:
+            third.append(row)
     result = BytesIO()
     workbook.save(result)
     workbook.close()
@@ -104,6 +108,34 @@ def test_bad_upload_does_not_write(monkeypatch):
     client = app.test_client()
     for data in [{}, {"standings_file": (BytesIO(b"invalid"), "file.xlsx")}, {"standings_file": (excel(), "file.csv")}]:
         assert client.post("/admin/standings/import", data=data).status_code == 302
+
+
+def test_single_upload_imports_all_three_sheets_in_one_write(monkeypatch):
+    admin_context(monkeypatch)
+    writes = []
+    monkeypatch.setattr("admin_routes.replace_standings", lambda rows: writes.append(rows) or len(rows))
+    response = app.test_client().post("/admin/standings/import", data={
+        "standings_file": (excel(future=[ROW], fem=[ROW]), "tres-clasificaciones.xlsx"),
+    })
+    assert response.status_code == 302
+    assert len(writes) == 1
+    assert [(row["team_id"], row["source_sheet"]) for row in writes[0]] == [
+        ("equipo-1", "Clasificación 500"),
+        ("equipo-2", "Clasificación Future"),
+        ("equipo-3", "Clasificación Fem"),
+    ]
+
+
+def test_error_in_last_sheet_prevents_writes_for_all_three(monkeypatch):
+    admin_context(monkeypatch)
+    monkeypatch.setattr("admin_routes.replace_standings", lambda rows: pytest.fail("must not write any sheet"))
+    invalid = list(ROW)
+    invalid[3] = "inválido"
+    response = app.test_client().post("/admin/standings/import", data={
+        "standings_file": (excel(future=[ROW], fem=[invalid]), "tres-clasificaciones.xlsx"),
+    })
+    assert response.status_code == 302
+    assert response.location.endswith("/admin#clasificacion")
 
 
 def test_watcher_cannot_import_and_admin_requires_csrf(monkeypatch):
