@@ -77,8 +77,6 @@
             <form method="post" action="{{ url_for('admin.remove_player', player_id=player.id) }}" onsubmit="return confirm('¿Eliminar esta ficha de jugador?')">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-danger" type="submit">Archivar</button>
             </form>
-            {% set stats = player_stats.get(player.id, {}) %}
-            <div class="admin-player-stats"><span>{{ stats.get('played', 0) }} PJ</span><span>{{ stats.get('wins', 0) }} PG</span><span>{{ stats.get('losses', 0) }} PP</span><span>{{ stats.get('sets_won', 0) }} SG</span><span>{{ stats.get('sets_lost', 0) }} SP</span></div>
           </article>
           {% else %}<div class="admin-card empty-admin">Aún no hay jugadores activos en esta plantilla.</div>{% endfor %}
         </div>
@@ -97,8 +95,6 @@
               <form method="post" action="{{ url_for('admin.restore_player', player_id=player.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="admin-button" type="submit">Restaurar</button>
               </form>
-              {% set stats = player_stats.get(player.id, {}) %}
-              <div class="admin-player-stats"><span>{{ stats.get('played', 0) }} PJ</span><span>{{ stats.get('wins', 0) }} PG</span><span>{{ stats.get('losses', 0) }} PP</span><span>{{ stats.get('sets_won', 0) }} SG</span><span>{{ stats.get('sets_lost', 0) }} SP</span></div>
             </article>
             {% else %}<div class="admin-card empty-admin">No hay jugadores archivados.</div>{% endfor %}
           </div>

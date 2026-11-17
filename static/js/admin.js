@@ -37,23 +37,42 @@
 
   document.querySelectorAll('[data-match-form]').forEach((form) => {
     const teamSelect = form.querySelector('[data-team-select]');
-    const playerSelects = form.querySelectorAll('[data-player-select]');
+    // The pair editor is a sibling of data-match-form, inside the same form.
+    const playerSelects = form.closest('form').querySelectorAll('[data-player-select]');
     const editingMatch = form.dataset.matchEditing === 'true';
     if (!teamSelect) return;
 
-    const filterPlayers = (clearOtherTeams) => {
+    const originalOptions = new Map(Array.from(playerSelects, (select) => [
+      select,
+      Array.from(select.options, (option) => ({
+        element: option.cloneNode(true),
+        historical: editingMatch && option.selected && option.value !== ''
+      }))
+    ]));
+
+    const filterPlayers = () => {
       const teamId = teamSelect.value;
       playerSelects.forEach((select) => {
-        Array.from(select.options).forEach((option) => {
-          const belongsToTeam = option.dataset.team === teamId;
-          const archivedSelection = editingMatch && option.dataset.active === 'false' && option.selected;
-          option.disabled = option.value !== '' && (!belongsToTeam || (option.dataset.active === 'false' && !archivedSelection));
-          if (!belongsToTeam && clearOtherTeams) option.selected = false;
-        });
+        const previousValue = select.value;
+        const options = originalOptions.get(select)
+          .filter(({ element: option, historical }) => option.value === '' || (
+            option.dataset.team === teamId
+            && (option.dataset.active !== 'false' || historical)
+          ))
+          .map(({ element }) => {
+            const option = element.cloneNode(true);
+            option.disabled = false;
+            option.selected = false;
+            return option;
+          });
+        // Remove unrelated players rather than disabling them: native mobile
+        // select menus may still display disabled/hidden options.
+        select.replaceChildren(...options);
+        select.value = options.some((option) => option.value === previousValue) ? previousValue : '';
       });
     };
 
-    filterPlayers(false);
-    teamSelect.addEventListener('change', () => filterPlayers(true));
+    filterPlayers();
+    teamSelect.addEventListener('change', filterPlayers);
   });
 })();
