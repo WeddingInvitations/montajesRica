@@ -89,3 +89,41 @@ test('partidos agrupados por jornada numérica, ordenados por fecha dentro y con
   assert.match(filtered,/Jornada 2/);
   assert.doesNotMatch(filtered,/Jornada 10|Sin jornada asignada|Rival segundo/);
 });
+
+test('selector de jornada ordenado, sin duplicados y combinable con equipo', () => {
+  const nodes = render({}, [
+    {jornada:10,opponent:'Rival diez',date:'2026-01-01',team_id:'equipo-1'},
+    {jornada:2,opponent:'Rival dos A',date:'2026-01-02',team_id:'equipo-1'},
+    {jornada:2,opponent:'Rival dos B',date:'2026-01-02',team_id:'equipo-2'},
+    {opponent:'Rival antiguo',date:'2026-01-03',team_id:'equipo-1'},
+  ]);
+  const selector = nodes.get('matchday-filter');
+  assert.ok(selector.innerHTML.indexOf('Jornada 2') < selector.innerHTML.indexOf('Jornada 10'));
+  assert.equal((selector.innerHTML.match(/Jornada 2</g)||[]).length,1);
+  selector.listeners.change({target:{value:'2'}});
+  assert.match(nodes.get('matches-list').innerHTML,/Rival dos A/);
+  assert.match(nodes.get('matches-list').innerHTML,/Rival dos B/);
+  assert.doesNotMatch(nodes.get('matches-list').innerHTML,/Rival diez|Rival antiguo/);
+  nodes.get('match-team-filter').listeners.change({target:{value:'equipo-2'}});
+  assert.equal(selector.value,'2');
+  assert.doesNotMatch(nodes.get('matches-list').innerHTML,/Rival dos A/);
+  assert.match(nodes.get('matches-list').innerHTML,/Rival dos B/);
+  assert.doesNotMatch(selector.innerHTML,/Jornada 10|Sin jornada asignada/);
+});
+
+test('sin jornada filtra antiguos y cambiar equipo restablece una selección inexistente', () => {
+  const nodes=render({},[
+    {jornada:1,opponent:'Rival nuevo',date:'2026-01-01',team_id:'equipo-2'},
+    {opponent:'Rival antiguo',date:'2026-01-02',team_id:'equipo-1'},
+  ]);
+  const selector=nodes.get('matchday-filter');
+  selector.listeners.change({target:{value:'none'}});
+  assert.match(nodes.get('matches-list').innerHTML,/Rival antiguo/);
+  assert.doesNotMatch(nodes.get('matches-list').innerHTML,/Rival nuevo/);
+  nodes.get('match-team-filter').listeners.change({target:{value:'equipo-2'}});
+  assert.equal(selector.value,'all');
+  assert.match(nodes.get('matches-list').innerHTML,/Rival nuevo/);
+  selector.listeners.change({target:{value:'all'}});
+  nodes.get('match-team-filter').listeners.change({target:{value:'all'}});
+  assert.match(nodes.get('matches-list').innerHTML,/Rival antiguo/);
+});

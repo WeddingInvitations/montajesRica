@@ -111,7 +111,7 @@
 
           <section class="view-section hidden" id="view-partidos">
             <div class="page-title"><p class="eyebrow">CALENDARIO DE COMPETICIÓN</p><h1>Partidos</h1><p class="intro">Próximos encuentros y resultados de nuestros equipos.</p></div>
-            <div class="filter-row"><label class="select-wrap"><span class="sr-only">Filtrar por equipo</span><select id="match-team-filter"></select><span aria-hidden="true">⌄</span></label>{% if public_season %}<div class="filter-caption">Temporada {{ public_season }}</div>{% endif %}</div>
+            <div class="filter-row"><label class="select-wrap"><span class="sr-only">Filtrar por equipo</span><select id="match-team-filter"></select><span aria-hidden="true">⌄</span></label><label class="select-wrap"><span class="sr-only">Filtrar por jornada</span><select id="matchday-filter"></select><span aria-hidden="true">⌄</span></label>{% if public_season %}<div class="filter-caption">Temporada {{ public_season }}</div>{% endif %}</div>
             <div class="panel matches-panel" id="matches-list"></div>
           </section>
 

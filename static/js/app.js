@@ -112,18 +112,36 @@ import { renderMatchOutcome } from './match-outcome.mjs';
     document.getElementById('roster-content').innerHTML = content;
   }
 
-  function renderMatches(teamId = 'all') {
-    const list = matches.filter((match) => teamId === 'all' || match.team_id === teamId).sort((a, b) => (dateValue(a) || Infinity) - (dateValue(b) || Infinity));
+  const matchday = match => Number.isInteger(match.jornada) && match.jornada > 0 ? match.jornada : null;
+  let selectedMatchTeam = 'all';
+  let selectedMatchday = 'all';
+
+  function populateMatchdays() {
+    const fixtures = matches.filter(match => selectedMatchTeam === 'all' || match.team_id === selectedMatchTeam);
+    const days = [...new Set(fixtures.map(matchday).filter(day => day !== null))].sort((a, b) => a - b);
+    const hasUnassigned = fixtures.some(match => matchday(match) === null);
+    if (selectedMatchday !== 'all' && !(selectedMatchday === 'none' ? hasUnassigned : days.includes(Number(selectedMatchday)))) selectedMatchday = 'all';
+    const select = document.getElementById('matchday-filter');
+    select.innerHTML = '<option value="all">Todas las jornadas</option>'
+      + days.map(day => `<option value="${day}">Jornada ${day}</option>`).join('')
+      + (hasUnassigned ? '<option value="none">Sin jornada asignada</option>' : '');
+    select.value = selectedMatchday;
+  }
+
+  function renderMatches() {
+    const list = matches.filter(match => (selectedMatchTeam === 'all' || match.team_id === selectedMatchTeam)
+      && (selectedMatchday === 'all' || (selectedMatchday === 'none' ? matchday(match) === null : matchday(match) === Number(selectedMatchday))))
+      .sort((a, b) => (dateValue(a) || Infinity) - (dateValue(b) || Infinity));
     const groups = new Map();
     list.forEach(match => {
-      const jornada = Number.isInteger(match.jornada) && match.jornada > 0 ? match.jornada : null;
+      const jornada = matchday(match);
       if (!groups.has(jornada)) groups.set(jornada, []);
       groups.get(jornada).push(match);
     });
     document.getElementById('matches-list').innerHTML = list.length
       ? [...groups.entries()].sort(([a], [b]) => (a ?? Infinity) - (b ?? Infinity))
         .map(([jornada, fixtures]) => `<section class="matchday-group"><h2 class="matchday-heading">${jornada === null ? 'Sin jornada asignada' : `Jornada ${jornada}`}</h2>${fixtures.map(match => matchCard(match)).join('')}</section>`).join('')
-      : emptyState('◷', 'Aún no hay partidos', 'El calendario y los resultados aparecerán aquí cuando estén disponibles.');
+      : emptyState('◷', 'No hay partidos para estos filtros', 'Selecciona otro equipo o jornada para ver más encuentros.');
   }
 
   function renderRanking(teamId = 'all') {
@@ -159,6 +177,7 @@ import { renderMatchOutcome } from './match-outcome.mjs';
   populateSelect(document.getElementById('ranking-team-filter'), true);
   renderOverview();
   renderRoster(teams[0]?.id);
+  populateMatchdays();
   renderMatches();
   renderStandings();
   renderRanking();
@@ -175,7 +194,15 @@ import { renderMatchOutcome } from './match-outcome.mjs';
     }
   });
   document.getElementById('team-select').addEventListener('change', (event) => renderRoster(event.target.value));
-  document.getElementById('match-team-filter').addEventListener('change', (event) => renderMatches(event.target.value));
+  document.getElementById('match-team-filter').addEventListener('change', (event) => {
+    selectedMatchTeam = event.target.value;
+    populateMatchdays();
+    renderMatches();
+  });
+  document.getElementById('matchday-filter').addEventListener('change', (event) => {
+    selectedMatchday = event.target.value;
+    renderMatches();
+  });
   document.getElementById('standings-team-filter').addEventListener('change', (event) => renderStandings(event.target.value));
   document.getElementById('ranking-team-filter').addEventListener('change', (event) => renderRanking(event.target.value));
   document.getElementById('mobile-menu').addEventListener('click', (event) => {
