@@ -154,6 +154,10 @@ def _parse_pairings(
                 if not result:
                     abort(400, description=f"Los sets de la pareja {index} deben escribirse como 6-4, 7-5.")
                 home_score, away_score = map(int, result.groups())
+                # El formulario usa local-visitante; internamente los sets
+                # conservan MR-rival para mantener historial y estadísticas.
+                if request.form.get("pairing_score_order") == "local-visitor" and request.form.get("home") != "on":
+                    home_score, away_score = away_score, home_score
                 if home_score > 99 or away_score > 99:
                     abort(400, description=f"El marcador de la pareja {index} contiene un set inválido.")
                 clean_sets.append({"home": home_score, "away": away_score})

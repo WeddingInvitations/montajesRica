@@ -165,6 +165,35 @@ def test_played_match_can_be_created_and_edited_without_opponent_pair_names():
             assert result["pairings"][0]["sets"] == [{"home": 6, "away": 4}, {"home": 7, "away": 5}]
 
 
+def test_pairing_form_local_visitor_scores_are_normalized_without_changing_legacy():
+    from admin_routes import _parse_pairings
+
+    players = [{"id": "p1", "name": "Uno", "team_id": "equipo-1"},
+               {"id": "p2", "name": "Dos", "team_id": "equipo-1"}]
+    base = {"pairing_player_1_1": "p1", "pairing_player_1_2": "p2", "pairing_sets_1": "2-6, 4-6"}
+    for fields, expected in [
+        ({"home": "on", "pairing_score_order": "local-visitor"}, [{"home": 2, "away": 6}, {"home": 4, "away": 6}]),
+        ({"pairing_score_order": "local-visitor"}, [{"home": 6, "away": 2}, {"home": 6, "away": 4}]),
+        ({}, [{"home": 2, "away": 6}, {"home": 4, "away": 6}]),
+    ]:
+        with app.test_request_context("/", method="POST", data={**base, **fields}):
+            assert _parse_pairings(players, "equipo-1")[0]["sets"] == expected
+
+
+def test_away_pairing_editor_displays_rival_first_and_reversed_historic_scores():
+    from flask import render_template
+
+    club = {"teams": [{"id": "equipo-1", "name": "Equipo de prueba"}], "players": []}
+    with app.test_request_context("/"):
+        html = render_template("partials/match_fields.html", club=club, editing={
+            "home": False, "pairings": [{"opponent_pair": "Rival prueba", "sets": [{"home": 6, "away": 2}]}],
+        })
+    row = html.split('class="pairing-row"')[1]
+    assert row.index("data-pair-rival>") < row.index("data-pair-mr>")
+    assert 'value="2-6"' in row
+    assert "Sets (rival–MR)" in row
+
+
 def test_archived_player_can_be_kept_only_in_its_existing_match():
     from admin_routes import _parse_pairings
 

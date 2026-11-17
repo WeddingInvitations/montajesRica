@@ -1,4 +1,6 @@
 {% set match_data = editing if editing is defined and editing else {} %}
+{% set is_home = match_data.get('home', true) %}
+<input type="hidden" name="pairing_score_order" value="local-visitor">
 <div class="form-grid match-form-grid" data-match-form data-match-editing="{{ 'true' if match_data else 'false' }}">
   <label>Equipo<select name="team_id" data-team-select required>{% for team in club.teams %}<option value="{{ team.id }}" {% if match_data.get('team_id', club.teams[0].id if club.teams else '') == team.id %}selected{% endif %}>{{ team.name }}</option>{% endfor %}</select></label>
   <label>Rival<input name="opponent" value="{{ match_data.get('opponent', '') }}" maxlength="120" required></label>
@@ -8,18 +10,19 @@
   <label>Lugar / pista<input name="venue" value="{{ match_data.get('venue', '') }}" maxlength="160" required></label>
   <label>Estado<select name="status"><option value="scheduled" {% if match_data.get('status', 'scheduled') == 'scheduled' %}selected{% endif %}>Pendiente</option><option value="played" {% if match_data.get('status') == 'played' %}selected{% endif %}>Jugado</option></select></label>
   <label>Resultado del enfrentamiento (local-visitante)<input name="score" value="{{ match_data.get('score', '') }}" maxlength="30" placeholder="Ej.: 12-0"></label>
-  <label class="check-label"><input name="home" type="checkbox" {% if match_data.get('home', true) %}checked{% endif %}> Montajes Rica juega como local</label>
+  <label class="check-label"><input name="home" data-match-home type="checkbox" {% if is_home %}checked{% endif %}> Montajes Rica juega como local</label>
   <label class="check-label"><input name="allow_future_players" data-future-exception type="checkbox" {% if match_data.get('allow_future_players', false) %}checked{% endif %}> Excepción: convocar jugadores de Masculino Future para Masculino 500 (sin cambiar su plantilla)</label>
 </div>
-<div class="pairing-editor">
-  <div><h4>Parejas y marcadores por sets <span class="optional-label">opcional</span></h4><p>En cada pareja elige dos jugadores del equipo. Los sets se anotan como 6-4, 7-5.</p></div>
+<div class="pairing-editor" data-pairing-order>
+  <div><h4>Parejas y marcadores por sets <span class="optional-label">opcional</span></h4><p>Orden local–visitante: los números de cada set corresponden al orden de las parejas. Al cambiar local/visitante se invierten los marcadores introducidos para conservar su significado.</p></div>
   {% for index in range(1, 6) %}
     {% set pair = match_data.get('pairings', [])[index - 1] if match_data.get('pairings', [])|length >= index else {} %}
     <div class="pairing-row">
       <span class="pairing-number">{{ index }}</span>
-      <label>Pareja MR<div class="pair-selects">{% for player_number in range(2) %}<select name="pairing_player_{{ index }}_{{ player_number + 1 }}" data-player-select aria-label="Jugador {{ player_number + 1 }} de pareja {{ index }}"><option value="">Selecciona jugador</option>{% for player in club.players|sort(attribute='name') %}{% set selected_player = pair.get('player_ids', [])|length > player_number and pair.get('player_ids', [])[player_number] == player.id %}<option value="{{ player.id }}" data-team="{{ player.team_id }}" data-active="{{ 'true' if player.get('active', true) else 'false' }}" {% if selected_player %}selected{% endif %} {% if not player.get('active', true) and not selected_player %}disabled{% endif %}>{{ player.name }}{% if not player.get('active', true) %} · Archivado{% endif %}</option>{% endfor %}</select>{% endfor %}</div></label>
-      <label>Pareja rival (opcional)<input name="pairing_opponent_{{ index }}" value="{{ pair.get('opponent_pair', '') }}" maxlength="100"></label>
-      <label>Sets (MR-rival)<input name="pairing_sets_{{ index }}" value="{% for score in pair.get('sets', []) %}{{ score.home }}-{{ score.away }}{% if not loop.last %}, {% endif %}{% endfor %}" placeholder="6-4, 7-5" maxlength="40"></label>
+      {% macro mr_pair() %}<label data-pair-mr><span data-pair-mr-title>Montajes Rica · {{ 'Local' if is_home else 'Visitante' }}</span><div class="pair-selects">{% for player_number in range(2) %}<select name="pairing_player_{{ index }}_{{ player_number + 1 }}" data-player-select aria-label="Jugador {{ player_number + 1 }} de pareja {{ index }}"><option value="">Selecciona jugador</option>{% for player in club.players|sort(attribute='name') %}{% set selected_player = pair.get('player_ids', [])|length > player_number and pair.get('player_ids', [])[player_number] == player.id %}<option value="{{ player.id }}" data-team="{{ player.team_id }}" data-active="{{ 'true' if player.get('active', true) else 'false' }}" {% if selected_player %}selected{% endif %} {% if not player.get('active', true) and not selected_player %}disabled{% endif %}>{{ player.name }}{% if not player.get('active', true) %} · Archivado{% endif %}</option>{% endfor %}</select>{% endfor %}</div></label>{% endmacro %}
+      {% macro rival_pair() %}<label data-pair-rival><span data-pair-rival-title>Rival · {{ 'Visitante' if is_home else 'Local' }} (opcional)</span><input name="pairing_opponent_{{ index }}" value="{{ pair.get('opponent_pair', '') }}" maxlength="100"></label>{% endmacro %}
+      {% if is_home %}{{ mr_pair() }}{{ rival_pair() }}{% else %}{{ rival_pair() }}{{ mr_pair() }}{% endif %}
+      <label data-pair-sets><span data-pair-sets-title>Sets ({{ 'MR–rival' if is_home else 'rival–MR' }})</span><input name="pairing_sets_{{ index }}" value="{% for score in pair.get('sets', []) %}{{ score.home if is_home else score.away }}-{{ score.away if is_home else score.home }}{% if not loop.last %}, {% endif %}{% endfor %}" placeholder="6-4, 7-5" maxlength="40"></label>
     </div>
   {% endfor %}
 </div>

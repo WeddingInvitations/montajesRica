@@ -38,3 +38,18 @@ test('names are escaped and extra stored sets are not silently lost', () => {
   assert.match(html, /&lt;img/);
   assert.match(html, /Set 4/);
 });
+
+test('local primero y visitante después con sus propios sets, sin alterar historial', () => {
+  const pairing = {player_names:['Pareja MR de prueba'],opponent_pair:'Pareja rival de prueba',sets:[{home:6,away:2}]};
+  for (const home of [true,false]) {
+    const html = renderMatchScoreboards({home, opponent:'Equipo rival',pairings:[pairing]});
+    const rows = html.split('<tbody>')[1].split('</tbody>')[0];
+    const first = rows.split('</tr>')[0];
+    assert.match(first, home ? /Pareja MR de prueba/ : /Pareja rival de prueba/);
+    assert.match(first, home ? /set-score-won">6/ : /class="set-score">2/);
+    const second = rows.split('</tr>')[1];
+    assert.match(second, home ? /class="set-score">2/ : /set-score-won">6/);
+    assert.equal(pairing.sets[0].home,6);
+    assert.equal(pairing.sets[0].away,2);
+  }
+});
