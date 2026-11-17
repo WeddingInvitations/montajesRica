@@ -32,6 +32,10 @@ import { renderMatchOutcome } from './match-outcome.mjs';
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[character]);
   const safe = (value, fallback = 'Por confirmar') => escapeHtml(value === null || value === undefined || value === '' ? fallback : value);
+  const publicMetadata = (value) => {
+    const text = String(value ?? '').trim();
+    return /configurar|confirmar|^pendiente$/i.test(text) ? '' : text;
+  };
   const dateValue = (match) => match.date ? new Date(`${match.date}T${match.time || '12:00'}`) : null;
   const displayDate = (match) => {
     const date = dateValue(match);
@@ -46,10 +50,12 @@ import { renderMatchOutcome } from './match-outcome.mjs';
     const teamMatches = matches.filter((match) => match.team_id === team.id);
     const upcoming = teamMatches.filter((match) => match.status !== 'played').length;
     const color = teamColors.includes(team.color) ? team.color : teamColors[index % teamColors.length];
+    const season = publicMetadata(team.season) || publicMetadata(club.season);
+    const division = large ? publicMetadata(team.division) : 'MONTAJES RICA';
     return `<article class="team-card team-${color} ${large ? 'team-card-large' : ''}">
-      <div class="team-card-top"><span class="team-number">0${index + 1}</span><span class="team-season">${safe(team.season, club.season)}</span></div>
+      <div class="team-card-top"><span class="team-number">0${index + 1}</span>${season ? `<span class="team-season">${safe(season)}</span>` : ''}</div>
       <div class="team-emblem"><span>${safe(team.short_name, String(team.name || `Equipo ${index + 1}`).replace(/equipo/i, 'E').slice(0, 3).toUpperCase())}</span><i></i></div>
-      <p class="eyebrow">${large ? safe(team.division, 'División por configurar') : 'MONTAJES RICA'}</p><h3>${safe(team.name)}</h3>
+      ${division ? `<p class="eyebrow">${safe(division)}</p>` : ''}<h3>${safe(team.name)}</h3>
       <div class="team-card-meta"><span><b>${teamPlayers.length}</b> jugadores</span><span><b>${upcoming}</b> partidos pendientes</span></div>
       <a class="team-action" href="#equipos" data-view="equipos" data-team-id="${escapeHtml(team.id)}">Ver plantilla <span>↗</span></a>
     </article>`;
@@ -120,9 +126,9 @@ import { renderMatchOutcome } from './match-outcome.mjs';
   function renderStandings(teamId = 'all') {
     const visibleTeams = teamId === 'all' ? teams : teams.filter((team) => team.id === teamId);
     const cards = visibleTeams.map(team => {
-      const title = `${safe(team.division, 'División por configurar')} · ${safe(team.season, club.season)}`;
+      const title = [publicMetadata(team.division), publicMetadata(team.season) || publicMetadata(club.season)].filter(Boolean).map(value => safe(value)).join(' · ');
       const rows = standings.filter(row => row.team_id ? row.team_id === team.id : row.division === team.division && (!row.season || row.season === team.season));
-      return `<section class="panel standings-card"><div class="panel-heading"><div><p class="eyebrow">${title}</p><h2>${safe(team.name)} · Tabla de posiciones</h2></div></div>${standingsTable(rows)}</section>`;
+      return `<section class="panel standings-card"><div class="panel-heading"><div>${title ? `<p class="eyebrow">${title}</p>` : ''}<h2>${safe(team.name)} · Tabla de posiciones</h2></div></div>${standingsTable(rows)}</section>`;
     }).join('');
     document.getElementById('standings-list').innerHTML = cards || emptyState('▤', 'Clasificación pendiente', 'Todavía no hay datos de liga para mostrar.');
   }

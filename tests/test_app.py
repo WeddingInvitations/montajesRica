@@ -21,7 +21,11 @@ def test_home_displays_three_teams_after_authentication(monkeypatch):
     assert 'id="ranking-team-filter"' in page
     assert 'Clasificación general' in page
     assert 'Wilson' in page
-    assert "divisiones y temporada por confirmar" in page.lower()
+    visible_html = page.split('<script id="club-data"')[0]
+    assert "por configurar" not in visible_html.lower()
+    assert "divisiones y temporada por confirmar" not in visible_html.lower()
+    assert 'class="demo-disclaimer"' not in visible_html
+    assert 'class="club-note"' not in visible_html
     assert response.headers["Cross-Origin-Opener-Policy"] == "same-origin-allow-popups"
 
 

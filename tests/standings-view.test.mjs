@@ -5,12 +5,13 @@ import vm from 'node:vm';
 
 const source = readFileSync(new URL('../static/js/app.js', import.meta.url), 'utf8').replace(/^import .*;$/gm, '');
 
-function render() {
+function render(metadata = {}) {
   const teams = [{id:'equipo-1',name:'Equipo 500',division:'Por configurar',season:'Prueba'},
     {id:'equipo-2',name:'Equipo Future',division:'Por configurar',season:'Prueba'}];
   const club = {teams, players:[], matches:[], standings:[{team_id:'equipo-1',division:'Por configurar',season:'Prueba',
     position:1,team_name:'Equipo <prueba>',played:1,wins:0,losses:1,points:0,
     source_a:0,sets_won:0,sets_lost:2,sets_difference:-2,games_won:0,games_lost:12,games_difference:-12}]};
+  teams.forEach(team => Object.assign(team, metadata));
   const nodes = new Map();
   const node = id => {
     if (!nodes.has(id)) nodes.set(id, {innerHTML:'',textContent:'',value:'',listeners:{},
@@ -49,4 +50,22 @@ test('Excel conserva ceros, diferencias negativas y cabeceras de sets y juegos',
   assert.match(html, /<td>-2<\/td>/);
   assert.match(html, /<td>-12<\/td>/);
   assert.doesNotMatch(html, /<prueba>/);
+});
+
+test('no muestra metadatos por configurar ni sus contenedores vacíos', () => {
+  const nodes = render({division:'División por configurar',season:'Por configurar'});
+  for (const id of ['team-grid', 'all-teams', 'standings-list']) {
+    const html = nodes.get(id).innerHTML;
+    assert.doesNotMatch(html, /por configurar|por confirmar/i);
+    assert.doesNotMatch(html, /<p class="eyebrow"><\/p>|<span class="team-season"><\/span>/);
+  }
+});
+
+test('mantiene divisiones y temporadas reales y escapa su contenido', () => {
+  const nodes = render({division:'División de prueba <ejemplo>',season:'2026/2027'});
+  for (const id of ['all-teams', 'standings-list']) {
+    const html = nodes.get(id).innerHTML;
+    assert.match(html, /División de prueba &lt;ejemplo&gt;/);
+    assert.match(html, /2026\/2027/);
+  }
 });
