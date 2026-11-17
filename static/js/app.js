@@ -1,3 +1,5 @@
+import { renderMatchScoreboards } from './match-scoreboard.mjs';
+
 (() => {
   const dataNode = document.getElementById('club-data');
   if (!dataNode) return;
@@ -55,12 +57,7 @@
     const isPlayed = match.status === 'played';
     const opponent = safe(match.opponent, 'Rival por confirmar');
     const score = match.score ? `<span class="match-score">${safe(match.score)}</span>` : '<span class="match-vs">VS</span>';
-    const pairings = Array.isArray(match.pairings) ? match.pairings : [];
-    const pairDetails = pairings.length ? `<details class="match-pairings"><summary>Ver parejas y sets</summary><div>${pairings.map((pairing, index) => {
-      const names = (pairing.player_ids || []).map((id, playerIndex) => safe(pairing.player_names?.[playerIndex] || players.find((player) => player.id === id)?.name, 'Jugador archivado')).join(' y ');
-      const sets = (pairing.sets || []).map((set) => `${safe(set.home)}-${safe(set.away)}`).join(', ');
-      return `<p><strong>Pareja ${index + 1}:</strong> ${names}${pairing.opponent_pair ? ` <span>vs</span> ${safe(pairing.opponent_pair)}` : ''}${sets ? `<small>${sets}</small>` : ''}</p>`;
-    }).join('')}</div></details>` : '';
+    const pairDetails = `<details class="match-pairings"><summary>Ver parejas y sets</summary><div class="pair-scoreboards">${renderMatchScoreboards(match, players)}</div></details>`;
     return `<article class="match-item ${compact ? 'match-item-compact' : ''}"><div class="match-row">
       <div class="match-date"><strong>${displayDate(match).split(' ')[1] || '—'}</strong><span>${displayDate(match).split(' ').slice(0, 1).join('')}</span></div>
       <div class="match-info"><span class="match-team-label">${teamName(match.team_id)} · ${isPlayed ? 'FINALIZADO' : 'PRÓXIMO'}</span><strong>${match.home ? 'Montajes Rica' : opponent}<span class="versus"> vs </span>${match.home ? opponent : 'Montajes Rica'}</strong><small>${safe(match.venue, 'Pista por confirmar')}${match.time ? ` · ${match.time}` : ''}</small></div>

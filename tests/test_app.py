@@ -155,6 +155,28 @@ def test_archived_player_can_be_kept_only_in_its_existing_match():
             raise AssertionError("An archived player must not be added to a new match")
 
 
+def test_future_call_up_requires_explicit_exception_and_excludes_other_teams():
+    import pytest
+    from werkzeug.exceptions import BadRequest
+    from admin_routes import _parse_pairings
+
+    players = [
+        {"id": "first", "name": "Jugador Uno", "team_id": "equipo-1"},
+        {"id": "future", "name": "Jugador Dos", "team_id": "equipo-2"},
+        {"id": "other", "name": "Jugador Tres", "team_id": "equipo-3"},
+    ]
+    data = {"pairing_player_1_1": "first", "pairing_player_1_2": "future"}
+    with app.test_request_context("/", method="POST", data=data):
+        with pytest.raises(BadRequest):
+            _parse_pairings(players, "equipo-1")
+        result = _parse_pairings(players, "equipo-1", allow_future_players=True)
+        assert result[0]["player_ids"] == ["first", "future"]
+    data["pairing_player_1_2"] = "other"
+    with app.test_request_context("/", method="POST", data=data):
+        with pytest.raises(BadRequest):
+            _parse_pairings(players, "equipo-1", allow_future_players=True)
+
+
 def test_remove_player_archives_without_deleting(monkeypatch):
     import admin_routes
     from flask import g

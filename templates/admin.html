@@ -64,9 +64,14 @@
           </div>
           <button class="admin-button" type="submit">Guardar jugador</button>
         </form>
+        <div class="admin-card form-grid" style="margin-top:12px">
+          <label>Filtrar por equipo<select data-roster-team><option value="">Todos los equipos</option>{% for team in club.teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}</select></label>
+          <label>Buscar jugador<input data-roster-search type="search" placeholder="Nombre del jugador" autocomplete="off"></label>
+        </div>
+        <p data-roster-empty hidden>No hay jugadores que coincidan con los filtros.</p>
         <div class="record-list">
           {% for player in active_players|sort(attribute='name') %}
-          <article class="admin-card record-card">
+          <article class="admin-card record-card" data-roster-row>
             <form class="form-grid player-record-form" method="post" action="{{ url_for('admin.edit_player', player_id=player.id) }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <label>Nombre<input name="name" value="{{ player.name }}" maxlength="100" required></label>
@@ -84,7 +89,7 @@
           <summary>Jugadores archivados <span>{{ archived_players|length }}</span></summary>
           <div class="record-list">
             {% for player in archived_players|sort(attribute='name') %}
-            <article class="admin-card record-card archived-player-card">
+            <article class="admin-card record-card archived-player-card" data-roster-row>
               <form class="form-grid player-record-form" method="post" action="{{ url_for('admin.edit_player', player_id=player.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <label>Nombre<input name="name" value="{{ player.name }}" maxlength="100" required></label>

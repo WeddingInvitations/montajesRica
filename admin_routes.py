@@ -104,12 +104,16 @@ def _parse_pairings(
     players: list[dict[str, Any]],
     team_id: str,
     existing_pairings: list[dict[str, Any]] | None = None,
+    allow_future_players: bool = False,
 ) -> list[dict[str, Any]]:
+    eligible_teams = {team_id}
+    if allow_future_players and team_id == 'equipo-1':
+        eligible_teams.add('equipo-2')
     player_by_id = {player["id"]: player for player in players}
     active_player_ids = {
         player["id"]
         for player in players
-        if player.get("team_id") == team_id
+        if player.get("team_id") in eligible_teams
         and player.get("active", True) is not False
     }
     validated = []
@@ -132,7 +136,7 @@ def _parse_pairings(
         old_player_ids = set(old_pairing.get("player_ids", []))
         valid_player_ids = active_player_ids | {
             player_id for player_id in old_player_ids
-            if player_id in player_by_id and player_by_id[player_id].get("team_id") == team_id
+            if player_id in player_by_id and player_by_id[player_id].get("team_id") in eligible_teams
         }
         if len(player_ids) != 2 or len(set(player_ids)) != 2 or any(player_id not in valid_player_ids for player_id in player_ids):
             abort(400, description=f"La pareja {index} debe tener dos jugadores del equipo seleccionado.")
@@ -202,10 +206,14 @@ def _match_values(club: dict[str, Any], existing_match: dict[str, Any] | None = 
     if status not in {"scheduled", "played"}:
         abort(400, description="El estado del partido no es válido.")
     score = _optional_text("score", 30)
+    allow_future_players = request.form.get("allow_future_players") == "on"
+    if allow_future_players and team_id != "equipo-1":
+        abort(400, description="La excepción solo permite convocar jugadores de Masculino Future en Masculino 500.")
     pairings = _parse_pairings(
         club.get("players", []),
         team_id,
         existing_pairings=(existing_match or {}).get("pairings", []),
+        allow_future_players=allow_future_players,
     )
     if score and not re.fullmatch(r"\d{1,2}\s*-\s*\d{1,2}", score):
         abort(400, description="El resultado general debe escribirse como 3-2.")
@@ -223,6 +231,7 @@ def _match_values(club: dict[str, Any], existing_match: dict[str, Any] | None = 
         "status": status,
         "score": score,
         "pairings": pairings,
+        "allow_future_players": allow_future_players,
     }
 
 

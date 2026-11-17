@@ -1,1 +1,40 @@
-.match-item+.match-item{border-top:1px solid #eff2ef}.match-item .match-row{border-top:0}.match-pairings{padding:0 0 12px 53px}.match-pairings summary{width:max-content;max-width:100%;cursor:pointer;color:var(--green);font-size:9px;font-weight:700;list-style:none}.match-pairings summary::-webkit-details-marker{display:none}.match-pairings summary:after{content:'＋';margin-left:6px}.match-pairings[open] summary:after{content:'−'}.match-pairings>div{display:grid;gap:5px;margin-top:8px}.match-pairings p{display:flex;flex-wrap:wrap;gap:4px;margin:0;color:var(--ink);font-size:9px;line-height:1.5}.match-pairings p span{color:var(--muted)}.match-pairings p small{flex:0 0 100%;padding-left:0;color:var(--muted);font-size:8px}.match-item-compact .match-pairings{padding-bottom:10px}.match-item-compact .match-pairings p{font-size:8px}html[data-theme="dark"] .match-item+.match-item{border-color:var(--line)}html[data-theme="dark"] .match-pairings p{color:var(--ink)}
+.match-item + .match-item { border-top: 1px solid var(--line); }
+.match-item .match-row { border-top: 0; }
+.match-pairings { padding: 0 0 16px 53px; }
+.match-pairings > summary { cursor: pointer; color: var(--green); font-size: 11px; font-weight: 700; list-style: none; width: fit-content; padding: 6px 0; }
+.match-pairings > summary::-webkit-details-marker, .pair-scoreboard > summary::-webkit-details-marker { display: none; }
+.match-pairings > summary::after { content: '＋'; margin-left: 8px; }
+.match-pairings[open] > summary::after { content: '−'; }
+.pair-scoreboards { display: grid; gap: 10px; margin-top: 8px; }
+.pairings-pending { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.6; }
+.pair-scoreboard { min-width: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--white); }
+.pair-scoreboard > summary { display: flex; align-items: center; gap: 12px; padding: 14px; cursor: pointer; list-style: none; color: var(--ink); }
+.pair-scoreboard-title { min-width: 0; flex: 1; font-weight: 700; font-size: 12px; }
+.pair-scoreboard-title small { display: block; margin-top: 5px; font-weight: 400; font-size: 11px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
+.pair-scoreboard-status { font-size: 10px; border-radius: 20px; padding: 5px 8px; background: var(--paper); color: var(--green); }
+.pair-scoreboard-chevron { flex: none; color: var(--green); transition: transform .15s; }
+.pair-scoreboard[open] > summary .pair-scoreboard-chevron { transform: rotate(180deg); }
+.scoreboard-scroll { overflow-x: auto; border-top: 1px solid var(--line); }
+.scoreboard-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.scoreboard-table th, .scoreboard-table td { border-bottom: 1px solid var(--line); padding: 14px 8px; }
+.scoreboard-table thead th { background: var(--paper); color: var(--muted); font-size: 10px; text-align: center; font-weight: 600; }
+.scoreboard-table th:first-child { width: 58%; text-align: left; padding-left: 14px; }
+.scoreboard-table tbody th { color: var(--ink); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+.scoreboard-table tbody th strong { display: block; font-size: 12px; line-height: 1.5; }
+.scoreboard-team { display: block; font-size: 9px; color: var(--muted); margin-bottom: 4px; letter-spacing: .5px; }
+.set-score { text-align: center; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); border-left: 1px solid var(--line); }
+.scoreboard-table .set-score-won { background: color-mix(in srgb, var(--green) 8%, transparent); color: var(--green); font-weight: 800; }
+.scoreboard-table tbody tr:last-child > * { border-bottom: 0; }
+.pair-scoreboard > summary:focus-visible, .scoreboard-scroll:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+html[data-theme="dark"] .pair-scoreboard { background: #292624; }
+@media (max-width: 600px) {
+	.match-pairings { padding-left: 0; }
+	.pair-scoreboard > summary { gap: 7px; padding: 12px; flex-wrap: wrap; }
+	.pair-scoreboard-title { flex-basis: calc(100% - 25px); }
+	.pair-scoreboard-chevron { order: 1; }
+	.pair-scoreboard-status { order: 2; }
+	.scoreboard-table th:first-child { width: 52%; padding-left: 10px; }
+	.scoreboard-table th, .scoreboard-table td { padding: 12px 4px; }
+	.scoreboard-table tbody th strong { font-size: 11px; }
+	.set-score { font-size: 16px; }
+}

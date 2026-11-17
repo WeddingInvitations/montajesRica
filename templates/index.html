@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-forms.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-flow.css') }}">
-    <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
   </head>
   <body>
     <main class="auth-gate {% if current_user %}hidden{% endif %}" id="auth-gate">
